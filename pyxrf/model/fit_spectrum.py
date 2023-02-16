@@ -264,7 +264,6 @@ class Fit1D(Atom):
         self.dict_to_plot = change["value"]
 
     def update_selected_index(self, selected_element=None, element_list_new=None):
-
         if selected_element is None:
             # Currently selected element
             element = self.selected_element
@@ -1650,7 +1649,6 @@ def residual_nonlinear_fit(pars, x, data=None, reg_mat=None):
 
 
 def fit_pixel_nonlinear_per_line(row_num, data, x0, param, reg_mat, use_snip):  # c_weight, fit_num, ftol):
-
     # c_weight = 1
     # fit_num = 100
     # ftol = 1e-3
@@ -1741,7 +1739,6 @@ def fit_pixel_multiprocess_nonlinear(data, x, param, reg_mat, use_snip=False):
 
 
 def get_area_and_error_nonlinear_fit(elist, fit_results, reg_mat):
-
     mat_sum = np.sum(reg_mat, axis=0)
     area_dict = OrderedDict()
     error_dict = OrderedDict()

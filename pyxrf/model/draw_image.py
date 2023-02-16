@@ -287,7 +287,6 @@ class DrawImageAdvanced(Atom):
             return self.scaler_items[self.scaler_name_index - 1]
 
     def set_scaler_index(self, scaler_index):
-
         self.scaler_name_index = scaler_index
 
         if self.scaler_name_index == 0:
@@ -443,7 +442,6 @@ class DrawImageAdvanced(Atom):
         self.range_dict.clear()
 
         for data_name in self.dict_to_plot.keys():
-
             if self.quantitative_normalization:
                 # Quantitative normalization
                 data_arr, _ = self.param_quant_analysis.apply_quantitative_normalization(
@@ -614,7 +612,6 @@ class DrawImageAdvanced(Atom):
             grid.cbar_axes[i].set_visible(False)
 
         for i, k in enumerate(selected_keys):
-
             quant_norm_applied = False
             if self.quantitative_normalization:
                 # Quantitative normalization
@@ -635,7 +632,6 @@ class DrawImageAdvanced(Atom):
                 )
 
             if pixel_or_pos_local or scatter_show_local:
-
                 # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
                 #     min(self.y_pos), max(self.y_pos)
                 x_pos_2D = self.io_model.img_dict["positions"]["x_pos"]
@@ -656,7 +652,6 @@ class DrawImageAdvanced(Atom):
                     yd_min, yd_max, yd_axis_min, yd_axis_max = yd_max, yd_min, yd_axis_max, yd_axis_min
 
             else:
-
                 yd, xd = data_arr.shape
 
                 xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
@@ -691,7 +686,6 @@ class DrawImageAdvanced(Atom):
                 low_limit -= dv
 
             if self.scale_opt == "Linear":
-
                 if not scatter_show_local:
                     if grid_interpolate_local:
                         data_arr, _, _ = grid_interpolate(
@@ -751,7 +745,6 @@ class DrawImageAdvanced(Atom):
                 # axis.label.set_text("$[a.u.]$")
 
             else:
-
                 # maxz = np.max(data_arr)
                 # Set some reasonable minimum range for the colorbar
                 #   Zeros or negative numbers will be shown in white

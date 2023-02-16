@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 class DialogSaveCalibration(QDialog):
     def __init__(self, parent=None, *, file_path=None):
-
         super().__init__(parent)
 
         self.__file_path = ""

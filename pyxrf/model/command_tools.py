@@ -599,7 +599,6 @@ def pyxrf_batch(
         raise ValueError("Value of the parameter 'quant_distance_to_sample' must be floating point number")
 
     if data_files is not None:
-
         # Check if ``data_files`` has valid value
         data_files_valid = False
         if isinstance(data_files, str):
@@ -637,7 +636,6 @@ def pyxrf_batch(
                     print(f"WARNING: file '{fln}' does not exist.")
 
     else:
-
         # ``data_files`` parameter is None
 
         all_files = glob.glob(os.path.join(wd, "*.h5"))
@@ -744,7 +742,6 @@ def pyxrf_batch(
         _dask_client_close(client_is_local)
 
     else:
-
         print("No files were selected for processing.")
 
     return flist

@@ -341,7 +341,6 @@ class ROIModel(Atom):
         return roi_result
 
     def saveROImap_to_hdf(self, data_dict_roi):
-
         # Generate the path to computed ROIs in the HDF5 file
         det_name = "detsum"  # Assume that ROIs are computed using the sum of channels
 

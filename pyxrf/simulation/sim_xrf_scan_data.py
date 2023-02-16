@@ -160,9 +160,7 @@ def gen_xrf_spectrum(
     xx_energy = e_offset + e_linear * nn + e_quadratic * np.square(nn)
 
     if element_line_groups is not None:
-
         for element_line_group, parameters in element_line_groups.items():
-
             element_area = parameters["area"]
 
             spectrum = np.zeros((n_spectrum_points,), dtype="float")
@@ -194,7 +192,6 @@ def gen_xrf_map_const(
     background_area=0,
     spectrum_parameters=None,
 ):
-
     r"""
     Generate ny (vertical) by nx (horizontal) XRF map with identical spectrum for each pixel.
 
@@ -671,7 +668,6 @@ def gen_hdf5_qa_dataset(*, wd=None, standards_serials=None, test_elements=None):
         fln_log = os.path.join(wd, fln_log)
 
     with open(fln_log, "wt") as f_log:
-
         for serial, elines in zip(standards_serials, element_lines):
             el_grp = {}
             for line, info in elines.items():

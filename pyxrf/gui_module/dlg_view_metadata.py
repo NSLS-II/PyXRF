@@ -7,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 class DialogViewMetadata(QDialog):
     def __init__(self):
-
         super().__init__()
 
         self.resize(500, 500)

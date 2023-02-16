@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 class DialogExportToTiffAndTxt(QDialog):
     def __init__(self, parent=None, *, dir_path=""):
-
         super().__init__(parent)
 
         self.__dir_path = ""

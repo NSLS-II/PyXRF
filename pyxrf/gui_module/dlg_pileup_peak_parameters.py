@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 class DialogPileupPeakParameters(QDialog):
     def __init__(self, parent=None):
-
         super().__init__(parent)
 
         self._data = {"element1": "", "element2": "", "energy": 0}

@@ -45,6 +45,7 @@ def test_IntValidatorStrict(text, range, result):
 # ==============================================================
 #   Class IntValidatorRelaxed
 
+
 # fmt: off
 @pytest.mark.parametrize("text, range, result", [
     ("", None, IntValidatorRelaxed.Intermediate),
@@ -132,6 +133,7 @@ def test_DoubleValidatorStrict(text, range, result):
 
 # ==============================================================
 #   Class DoubleValidatorRelaxed
+
 
 # fmt: off
 @pytest.mark.parametrize("text, range, result", [

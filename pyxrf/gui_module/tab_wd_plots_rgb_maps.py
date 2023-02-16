@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 class PlotRgbMaps(QWidget):
-
     signal_rgb_maps_dataset_selection_changed = Signal()
     signal_rgb_maps_norm_changed = Signal()
     signal_redraw_rgb_maps = Signal()

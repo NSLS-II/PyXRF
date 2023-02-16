@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 class FitMapsWidget(FormBaseWidget):
-
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
     computations_complete = Signal(object)
@@ -40,7 +39,6 @@ class FitMapsWidget(FormBaseWidget):
         self.initialize()
 
     def initialize(self):
-
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
 
         self._setup_settings()

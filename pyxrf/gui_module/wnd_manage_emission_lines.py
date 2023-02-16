@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 
 class WndManageEmissionLines(SecondaryWindow):
-
     signal_selected_element_changed = Signal(str)
     signal_update_element_selection_list = Signal()
     signal_update_add_remove_btn_state = Signal(bool, bool)
@@ -101,7 +100,6 @@ class WndManageEmissionLines(SecondaryWindow):
         self._set_tooltips()
 
     def _setup_select_elines(self):
-
         self.cb_select_all = QCheckBox("All")
         self.cb_select_all.setChecked(True)
         self.cb_select_all.toggled.connect(self.cb_select_all_toggled)
@@ -278,7 +276,6 @@ class WndManageEmissionLines(SecondaryWindow):
             row_data = [None, row["z"], row["eline"], row["energy"], row["peak_int"], row["rel_int"], row["cs"]]
 
             for nc, entry in enumerate(row_data):
-
                 label = self.tbl_labels[nc]
 
                 # Set alternating background colors for the table rows
@@ -308,7 +305,6 @@ class WndManageEmissionLines(SecondaryWindow):
 
                     self.tbl_elines.setCellWidget(nr, nc, item)
                 else:
-
                     s = None
                     # The case when the value (Rel. Int.) is limited from the bottom
                     #   We don't want to print very small numbers here
@@ -739,7 +735,6 @@ class WndManageEmissionLines(SecondaryWindow):
         self.signal_update_add_remove_btn_state.emit(add_enabled, remove_enabled)
 
     def _update_add_edit_userpeak_btn_state(self):
-
         enabled = True
         add_peak = True
         if self.gpc.get_eline_name_category(self._selected_eline) == "userpeak":
@@ -759,7 +754,6 @@ class WndManageEmissionLines(SecondaryWindow):
         self.pb_user_peaks.setEnabled(enabled)
 
     def _update_add_edit_pileup_peak_btn_state(self):
-
         enabled = True
         if self.gpc.get_eline_name_category(self._selected_eline) == "pileup":
             enabled = False

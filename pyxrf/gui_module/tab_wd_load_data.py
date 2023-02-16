@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 
 class LoadDataWidget(FormBaseWidget):
-
     update_main_window_title = Signal()
     update_global_state = Signal()
     computations_complete = Signal(object)
@@ -59,7 +58,6 @@ class LoadDataWidget(FormBaseWidget):
         self.initialize()
 
     def initialize(self):
-
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
 
         vbox = QVBoxLayout()
@@ -108,7 +106,6 @@ class LoadDataWidget(FormBaseWidget):
         self.group_wd.setLayout(hbox)
 
     def _setup_load_group(self):
-
         self.group_file = QGroupBox("Load Data")
 
         self.pb_file = QPushButton("Read File ...")
@@ -147,7 +144,6 @@ class LoadDataWidget(FormBaseWidget):
         self.group_file.setLayout(vbox)
 
     def _setup_sel_channel_group(self):
-
         self.group_sel_channel = QGroupBox("Select Channel For Processing")
 
         self.cbox_channel = QComboBox()
@@ -160,7 +156,6 @@ class LoadDataWidget(FormBaseWidget):
         self.group_sel_channel.setLayout(hbox)
 
     def _setup_spec_settings_group(self):
-
         self.group_spec_settings = QGroupBox("Total Spectrum Settings")
 
         self.pb_apply_mask = QPushButton("Apply Mask ...")
@@ -173,7 +168,6 @@ class LoadDataWidget(FormBaseWidget):
         self.group_spec_settings.setLayout(hbox)
 
     def _setup_preview_group(self):
-
         self.group_preview = QGroupBox("Preview")
 
         self.list_preview = QListWidget()
@@ -392,7 +386,6 @@ class LoadDataWidget(FormBaseWidget):
             msgbox.exec()
 
     def pb_dbase_clicked(self):
-
         dlg = DialogSelectScan()
         if dlg.exec() == QDialog.Accepted:
             mode, id_uid = dlg.get_id_uid()
@@ -538,7 +531,6 @@ class LoadDataWidget(FormBaseWidget):
         self._recover_after_compute(self.slot_apply_mask_clicked)
 
     def pb_view_metadata_clicked(self):
-
         dlg = DialogViewMetadata()
         metadata_string = self.gpc.get_formatted_metadata()
         dlg.setText(metadata_string)

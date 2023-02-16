@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 
 def get_color_name():
-
     # usually line plot will not go beyond 10
     first_ten = [
         "indigo",
@@ -226,7 +225,6 @@ class LinePlotModel(Atom):
     report_marker_state = Typed(object)
 
     def __init__(self, *, param_model, io_model):
-
         # Reference to ParamModel object
         self.param_model = param_model
         self.io_model = io_model
@@ -555,7 +553,6 @@ class LinePlotModel(Atom):
         self._show_hide_exp_plot(self.show_exp_opt or self.plot_exp_opt)
 
     def _show_hide_exp_plot(self, plot_show):
-
         if self.io_model.data is None:
             return
 
@@ -575,7 +572,6 @@ class LinePlotModel(Atom):
 
     @observe("plot_exp_opt")
     def _new_exp_plot_opt(self, change):
-
         if self.io_model.data is None:
             return
 
@@ -633,7 +629,6 @@ class LinePlotModel(Atom):
         self.exp_data_update({"value": data_arr})
 
     def plot_vertical_marker(self, *, e_low=None, e_high=None):
-
         # It doesn't seem necessary to force the marker inside the selected range.
         #   It may be used for purposes that require to set it outside the range
         # self._vertical_marker_set_inside_range(e_low=e_low, e_high=e_high)
@@ -745,9 +740,8 @@ class LinePlotModel(Atom):
 
         self.max_v = 1.0
         m = 0
-        for (k, v) in self.io_model.data_sets.items():
+        for k, v in self.io_model.data_sets.items():
             if v.selected_for_preview:
-
                 data_arr = np.asarray(v.data)
                 # Truncate the array (1D spectrum)
                 data_arr = data_arr[0 : self.number_pts_to_show]
@@ -910,7 +904,6 @@ class LinePlotModel(Atom):
             self.vertical_marker_kev = (e_low + e_high) / 2.0
 
     def _fill_elist(self):
-
         _elist = []
 
         incident_energy = self.incident_energy
@@ -921,7 +914,6 @@ class LinePlotModel(Atom):
         ename = self.get_element_line_name_by_id(self.element_id)
 
         if ename is not None:
-
             _elist = []
             if ename.lower().startswith("userpeak"):
                 # Make sure that the marker is in the selected range of energies
@@ -1019,7 +1011,6 @@ class LinePlotModel(Atom):
 
     @observe("element_id")
     def set_element(self, change):
-
         self._set_eline_select_controls(element_id=change["value"])
         self.compute_manual_peak_intensity(n_id=change["value"])
 
@@ -1044,7 +1035,6 @@ class LinePlotModel(Atom):
         is_pileup = self.param_model.get_eline_name_category(eline) == "pileup"
 
         if (ename is not None) or is_pileup:
-
             logger.debug(
                 "Plot emission line for element: "
                 "{} with incident energy {}".format(self.element_id, incident_energy)
@@ -1152,7 +1142,6 @@ class LinePlotModel(Atom):
             and len(self.io_model.data) > 1
             and len(self.param_model.prefit_x) > 1
         ):
-
             # Range of energies in fitting results
             e_fit_min = self.param_model.prefit_x[0]
             e_fit_max = self.param_model.prefit_x[-1]
@@ -1208,7 +1197,6 @@ class LinePlotModel(Atom):
         return intensity
 
     def compute_manual_peak_intensity(self, n_id=None):
-
         if n_id is None:
             n_id = self.element_id
 
@@ -1491,7 +1479,6 @@ class LinePlotModel(Atom):
         return barh_new
 
     def prepare_preview_spectrum_plot(self):
-
         if self._ax_preview:
             self._ax_preview.clear()
         else:
@@ -1502,7 +1489,6 @@ class LinePlotModel(Atom):
         self._fig_preview.set_visible(False)
 
     def _show_preview_spectrum_plot(self):
-
         # Completely redraw the plot each time the function is called
         self.prepare_preview_spectrum_plot()
 
@@ -1563,7 +1549,6 @@ class LinePlotModel(Atom):
             color = color_names[n_line % len(color_names)]
 
             if dset.selected_for_preview:
-
                 data_arr = np.asarray(dset.get_total_spectrum())
                 if data_arr is None:  # Just a precaution, it shouldn't happen
                     logger.error("Spectrum review: attempting to print empty dataset.")
@@ -1796,11 +1781,9 @@ class LinePlotModel(Atom):
             grid.cbar_axes[i].set_visible(False)
 
         for i, (k, v) in enumerate(selected_dsets.items()):
-
             data_arr = data_for_plotting[k]
 
             if pixel_or_pos_local == MapAxesUnits.POSITIONS or scatter_show_local:
-
                 # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
                 #     min(self.y_pos), max(self.y_pos)
                 x_pos_2D = data_for_plotting["positions"]["x_pos"]
@@ -1821,7 +1804,6 @@ class LinePlotModel(Atom):
                     yd_min, yd_max, yd_axis_min, yd_axis_max = yd_max, yd_min, yd_axis_max, yd_axis_min
 
             else:
-
                 yd, xd = data_arr.shape
 
                 xd_min, xd_max, yd_min, yd_max = 0, xd, 0, yd
@@ -1900,7 +1882,6 @@ class LinePlotModel(Atom):
                 grid.cbar_axes[i].ticklabel_format(style="sci", scilimits=(-3, 4), axis="both")
 
             else:
-
                 # maxz = np.max(data_arr)
                 # # Set some reasonable minimum range for the colorbar
                 # #   Zeros or negative numbers will be shown in white

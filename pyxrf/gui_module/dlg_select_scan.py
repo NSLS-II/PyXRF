@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 class DialogSelectScan(QDialog):
     def __init__(self):
-
         super().__init__()
 
         self.resize(400, 200)

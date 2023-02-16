@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 
 class ModelWidget(FormBaseWidget):
-
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
     computations_complete = Signal(object)
@@ -61,7 +60,6 @@ class ModelWidget(FormBaseWidget):
         self.initialize()
 
     def initialize(self):
-
         v_spacing = global_gui_parameters["vertical_spacing_in_tabs"]
 
         vbox = QVBoxLayout()
@@ -90,7 +88,6 @@ class ModelWidget(FormBaseWidget):
         self._timer_counter = 0
 
     def _setup_model_params_group(self):
-
         self.group_model_params = QGroupBox("Load/Save Model Parameters")
 
         self.pb_find_elines = QPushButton("Find Automatically ...")
@@ -125,12 +122,10 @@ class ModelWidget(FormBaseWidget):
         self.group_model_params.setLayout(vbox)
 
     def _setup_add_remove_elines_button(self):
-
         self.pb_manage_emission_lines = QPushButton("Add/Remove Emission Lines ...")
         self.pb_manage_emission_lines.clicked.connect(self.pb_manage_emission_lines_clicked)
 
     def _setup_settings_group(self):
-
         self.group_settings = QGroupBox("Settings for Fitting Algorithm")
 
         self.pb_fit_param_general = QPushButton("General ...")
@@ -177,7 +172,6 @@ class ModelWidget(FormBaseWidget):
         self.group_settings.setLayout(vbox)
 
     def _setup_model_fitting_group(self):
-
         self.group_model_fitting = QGroupBox("Model Fitting Based on Total Spectrum")
 
         self.pb_start_fitting = QPushButton("Start Fitting")

@@ -327,7 +327,6 @@ def _array_numpy_to_dask(data, chunk_pixels, n_chunks_min=4):
 
 
 def prepare_xrf_map(data, chunk_pixels=5000, n_chunks_min=4):
-
     """
     Convert XRF map from it's initial representation to properly chunked Dask array.
 

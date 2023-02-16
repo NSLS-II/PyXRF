@@ -241,7 +241,6 @@ class DrawImageRGB(Atom):
             return self.scaler_items[self.scaler_name_index - 1]
 
     def set_scaler_index(self, scaler_index):
-
         self.scaler_name_index = scaler_index
 
         if self.scaler_name_index == 0:
@@ -294,7 +293,6 @@ class DrawImageRGB(Atom):
         self.range_dict.clear()
 
         for data_name in self.dict_to_plot.keys():
-
             if self.quantitative_normalization:
                 # Quantitative normalization
                 data_arr, _ = self.img_model_adv.param_quant_analysis.apply_quantitative_normalization(
@@ -505,7 +503,6 @@ class DrawImageRGB(Atom):
             return c_min, c_max
 
         if pixel_or_pos_local:
-
             # xd_min, xd_max, yd_min, yd_max = min(self.x_pos), max(self.x_pos),
             #     min(self.y_pos), max(self.y_pos)
             x_pos_2D = self.io_model.img_dict["positions"]["x_pos"]
@@ -576,7 +573,6 @@ class DrawImageRGB(Atom):
             return (data - data_min) / c_norm if (c_norm != 0) else (data - data_min)
 
         def _stretch_range(data_in, v_low, v_high):
-
             # 'data is already normalized, so that the values are in the range 0..1
             # v_low, v_high are in the range 0..100
             if data_in is None:

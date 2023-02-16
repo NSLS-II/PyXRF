@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 
 class WndComputeRoiMaps(SecondaryWindow):
-
     # Signal that is sent (to main window) to update global state of the program
     update_global_state = Signal()
     computations_complete = Signal(object)
@@ -98,7 +97,6 @@ class WndComputeRoiMaps(SecondaryWindow):
         return vbox
 
     def _setup_table(self):
-
         # Labels for horizontal header
         self.tbl_labels = ["Line", "E, keV", "ROI, keV", "Show", "Reset"]
 
@@ -137,7 +135,6 @@ class WndComputeRoiMaps(SecondaryWindow):
         self.fill_table(self._table_contents)
 
     def fill_table(self, table_contents):
-
         self.table.clearContents()
         self._table_contents = table_contents  # Save new table contents
 
@@ -162,7 +159,6 @@ class WndComputeRoiMaps(SecondaryWindow):
             range_displayed = row["range_displayed"]
             table_row = [eline_name, energy, (energy_left, energy_right)]
             for nc, entry in enumerate(table_row):
-
                 label = self.tbl_labels[nc]
 
                 # Set alternating background colors for the table rows
@@ -242,7 +238,6 @@ class WndComputeRoiMaps(SecondaryWindow):
             self.table.setCellWidget(nr, nc + 2, item)
 
     def _setup_footer(self):
-
         self.cb_subtract_baseline = QCheckBox("Subtract baseline")
         self.cb_subtract_baseline.setChecked(
             Qt.Checked if self.gpc.get_roi_subtract_background() else Qt.Unchecked

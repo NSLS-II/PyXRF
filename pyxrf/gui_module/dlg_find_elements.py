@@ -8,7 +8,6 @@ from .useful_widgets import set_tooltip, LineEditExtended
 
 class DialogFindElements(QDialog):
     def __init__(self, parent=None):
-
         super().__init__(parent)
 
         self._dialog_data = {}

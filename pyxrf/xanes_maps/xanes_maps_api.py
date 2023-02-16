@@ -1621,7 +1621,6 @@ def _plot_processing_results(
         and (xanes_map_data_counts is not None)
         and (xanes_map_rfactor is not None)
     ):
-
         plot_absorption_references(
             ref_energy=ref_energy,
             ref_data=ref_data,
@@ -2518,7 +2517,6 @@ def show_image_stack(
                 self.ax_img_stack.add_patch(self.img_rect)
 
         def show(self, block=True):
-
             self.textbox_nlabel = None
 
             self.fig = plt.figure(figsize=(11, 6), num="XRF MAPS")
@@ -2606,7 +2604,6 @@ def show_image_stack(
             plt.show(block=block)
 
         def show_fluor_point_coordinates(self):
-
             x_min, y_min, x_max, y_max = self.pts_selected
 
             pt_x_min = x_min * self.pos_dx + self.pos_x_min
@@ -2662,7 +2659,6 @@ def show_image_stack(
                 b.on_clicked(self.btn_stack_clicked)
 
         def create_buttons_prev_next(self):
-
             bwidth = 0.07  # Width of prev. and next button button
             lwidth = 0.08  # Width of the text label between prev and next buttons
             bgap = 0.01  # Gap between buttons
@@ -2792,7 +2788,6 @@ def show_image_stack(
                 and (self.ref_data is not None)
                 and (self.ref_energy is not None)
             ):
-
                 # The number of averaged points
                 n_averaged_pts = (xd_px_max - xd_px_min + 1) * (yd_px_max - yd_px_min + 1)
 
@@ -3189,7 +3184,6 @@ def _get_dataset_name(img_dict, detector=None):
     dataset name, raises RuntimeError exception if dataset is not found
     """
     for name in img_dict.keys():
-
         if detector is None:
             # Dataset name for the sum should have no 'det1', 'det2' etc. preceding '_fit'
             if re.search("fit$", name) and not re.search(r"det\d+_fit", name):  # noqa: W605
@@ -3309,7 +3303,6 @@ def _save_xanes_maps_to_tiff(
     positions_y,
     output_save_all,
 ):
-
     r"""
     Saves the results of processing in stacked .tiff files and creates .txt log file
     with the list of contents of .tiff files.
@@ -3377,7 +3370,6 @@ def _save_xanes_maps_to_tiff(
     fln_log = "maps_log_tiff.txt"
     fln_log = os.path.join(wd, fln_log)
     with open(fln_log, "w") as f_log:
-
         print(f"Processing completed at {convert_time_to_nexus_string(ttime.localtime())}", file=f_log)
 
         if positions_x is not None and positions_y is not None:
@@ -3542,7 +3534,6 @@ def _save_spectrum_as_csv(*, fln, wd=None, msg_info=None, energy=None, spectrum=
 
 
 if __name__ == "__main__":
-
     logger = logging.getLogger(__name__)
 
     logger.setLevel(logging.INFO)

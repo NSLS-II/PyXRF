@@ -7,7 +7,6 @@ from pyxrf.api_dev import save_data_to_hdf5, read_data_from_hdf5
 
 
 def _prepare_raw_dataset(N=5, M=10, K=4096):
-
     det1 = np.ones(shape=[N, M, K]) * 100
     det2 = np.ones(shape=[N, M, K]) * 150
     det3 = np.ones(shape=[N, M, K]) * 200

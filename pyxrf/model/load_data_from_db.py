@@ -581,7 +581,6 @@ def _extract_metadata_from_header(hdr):
     stop_document = hdr.stop
 
     if stop_document:
-
         if "time" in stop_document:
             t = stop_document["time"]
             mdata["scan_time_stop"] = convert_time_to_nexus_string(ttime.localtime(t))
@@ -591,7 +590,6 @@ def _extract_metadata_from_header(hdr):
             mdata["scan_exit_status"] = stop_document["exit_status"]
 
     else:
-
         mdata["scan_exit_status"] = "incomplete"
 
     # Add full beamline name (if available, otherwise don't create the entry).
@@ -1155,7 +1153,6 @@ def map_data2D_srx_old(
 
     # There may be no 'plan_name' key in the old stepscans
     if (plan_n is None) or ("fly" not in plan_n):  # not fly scan
-
         print()
         print("****************************************")
         print("        Loading SRX step scan           ")
@@ -1276,7 +1273,6 @@ def map_data2D_srx_old(
         return data_output
 
     else:
-
         print()
         print("****************************************")
         print("         Loading SRX fly scan           ")
@@ -1345,7 +1341,6 @@ def map_data2D_srx_old(
 
         # Try each data field listed in the config file
         for detector_field, detector_name in detector_field_dict.items():
-
             # Assume that Databroker caches the tables locally, so that data will not be reloaded
             filler = Filler(db.reg.handler_reg, inplace=True)
             docs_stream0 = hdr.documents(fill=False, stream_name=des.name)
@@ -1621,7 +1616,6 @@ def map_data2D_srx_new(
     save_scaler=True,
     num_end_lines_excluded=None,
 ):
-
     if num_end_lines_excluded:
         logger.warning(
             "The data loading function for new SRX format does not support the parameter "
@@ -2612,7 +2606,6 @@ def write_db_to_hdf(
             raise IOError(f"'write_db_to_hdf': File '{fpath}' already exists.")
 
     with h5py.File(fpath, "a") as f:
-
         sum_data = None
         new_v_shape = datashape[0]  # to be updated if scan is not completed
         spectrum_len = 4096  # standard
@@ -3105,7 +3098,6 @@ def save_data_to_hdf5(
                 raise IOError(f"Function 'save_data_to_hdf5': File '{fpath}' already exists")
 
     with h5py.File(fpath, file_open_mode) as f:
-
         # Create metadata group
         metadata_grp = f.create_group(f"{interpath}/scan_metadata")
 

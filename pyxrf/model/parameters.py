@@ -858,7 +858,6 @@ class ParamModel(Atom):
         self._update_userpeak_fwhm(eline, energy_new, fwhm_new)
 
     def modify_userpeak_params(self, maxv_new, fwhm_new, energy_new):
-
         if self.get_eline_name_category(self.e_name) != "userpeak":
             msg = (
                 f"Hight and width can be modified only for a user defined peak.\n"
