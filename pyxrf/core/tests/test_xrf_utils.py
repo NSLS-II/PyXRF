@@ -11,6 +11,10 @@ from pyxrf.core.xrf_utils import (
     check_if_eline_supported,
     check_if_eline_is_activated,
     generate_eline_list,
+    compute_cs,
+    compute_cs_ratio,
+    compute_atomic_weight,
+    compute_atomic_scaling_factor,
 )
 
 
@@ -222,3 +226,95 @@ def test_generate_eline_list3():
     """
     with pytest.raises(RuntimeError, match="Some of the selected emission lines are incorrect"):
         generate_eline_list(["Fe", "W", "Ta"], incident_energy=12.0, lines=["K", "Ka"])
+
+
+# fmt: off
+@pytest.mark.parametrize("ZZ, incident_energy, line, cs_value", [
+    (31, 12.0, "K", 7924.59),
+    (31, 12.0, "L", 279.98),
+    (82, 12.0, "M", 713.19),
+])
+# fmt: on
+def test_compute_cs_01(ZZ, incident_energy, line, cs_value):
+    """
+    ``compute_cs``: basic test
+    """
+    cs = compute_cs(ZZ, incident_energy, line=line)
+    npt.assert_equal(cs, cs_value)
+
+
+def test_compute_cs_02_fail():
+    """
+    ``compute_cs``: basic test
+    """
+    ZZ, line = 31, "K"
+    incident_energy = 1  # Too small
+    with pytest.raises(ValueError, match="Failed to compute cross section for an element"):
+        compute_cs(ZZ, incident_energy, line=line)
+
+    line2 = "A"  # non-existing
+    with pytest.raises(ValueError, match="Unrecognized emission line"):
+        compute_cs(ZZ, incident_energy, line=line2)
+
+
+# fmt: off
+@pytest.mark.parametrize("eline1, eline2, incident_energy, cs_ratio", [
+    ("Cu_K", "Ga_K", 12.0, 0.705789),
+    ("Cu_K", "Ga_L", 12.0, 19.976748),
+])
+# fmt: on
+def test_compute_cs_ratio_01(eline1, eline2, incident_energy, cs_ratio):
+    csr = compute_cs_ratio(eline1, eline2, incident_energy)
+    npt.assert_almost_equal(csr, cs_ratio, 5)
+
+
+# fmt: off
+@pytest.mark.parametrize("eline1, eline2, incident_energy", [
+    ("Cu", "Ga_K", 12.0),
+    ("Cu_K", "Ga", 12.0),
+    ("Ab_K", "Ga_K", 12.0),
+    ("Cu_K", "Ab_K", 12.0),
+    ("Cu_Z", "Ga_K", 12.0),
+    ("Cu_K", "Ga_Z", 12.0),
+])
+# fmt: on
+def test_compute_cs_ratio_02_fail(eline1, eline2, incident_energy):
+    with pytest.raises(ValueError, match="Invalid emission line"):
+        compute_cs_ratio(eline1, eline2, incident_energy)
+
+
+# fmt: off
+@pytest.mark.parametrize("element, weight", [
+    ("Cu_K", 63.54),
+    ("Cu", 63.54),
+])
+# fmt: on
+def test_compute_atomic_weight_01(element, weight):
+    aw = compute_atomic_weight(element)
+    npt.assert_almost_equal(aw, weight)
+
+
+# fmt: off
+@pytest.mark.parametrize("ref_eline, quant_eline, incident_energy, factor", [
+    ("Cu_K", "Ga_K", 12.0, 0.77443536),
+    ("Cu_K", "Ga_L", 12.0, 21.919718),
+])
+# fmt: on
+def test_compute_atomic_scaling_factor_01(ref_eline, quant_eline, incident_energy, factor):
+    sf = compute_atomic_scaling_factor(ref_eline, quant_eline, incident_energy)
+    npt.assert_almost_equal(sf, factor, 5)
+
+
+# fmt: off
+@pytest.mark.parametrize("ref_eline, quant_eline, incident_energy, msg", [
+    ("Cu_K", "Ga_M", 12.0, "Failed to compute cross section for an element"),
+    ("Ga_M", "Cu_K", 12.0, "Failed to compute cross section for an element"),
+    ("Ab_K", "Ga_L", 12.0, "Failed to compute atomic weight for the element"),
+    ("Ga_L", "Ab_K", 12.0, "Failed to compute atomic weight for the element"),
+    ("Cu_Z", "Ga_L", 12.0, "Invalid emission line"),
+    ("Ga_L", "Cu_Z", 12.0, "Invalid emission line"),
+])
+# fmt: on
+def test_compute_atomic_scaling_factor_02_fail(ref_eline, quant_eline, incident_energy, msg):
+    with pytest.raises(ValueError, match=msg):
+        compute_atomic_scaling_factor(ref_eline, quant_eline, incident_energy)
