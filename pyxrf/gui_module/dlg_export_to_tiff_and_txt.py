@@ -31,6 +31,8 @@ class DialogExportToTiffAndTxt(QDialog):
         self.__save_txt = False
         self.__interpolate_on = False
         self.__quant_norm_on = False
+        self.__quant_ref_eline_list = []
+        self.__quant_ref_eline = ""
         self.__dset_list = []
         self.__dset_sel = 0
         self.__scaler_list = []
@@ -74,7 +76,7 @@ class DialogExportToTiffAndTxt(QDialog):
             "copied from <b>XRF Maps</b> tab.",
         )
 
-        self.cb_quantitative = QCheckBox("Quantitative normalization")
+        self.cb_quantitative = QCheckBox("Quantitative")
         self.cb_quantitative.setChecked(Qt.Checked if self.__quant_norm_on else Qt.Unchecked)
         self.cb_quantitative.stateChanged.connect(self.cb_quantitative_state_changed)
         set_tooltip(
@@ -83,12 +85,26 @@ class DialogExportToTiffAndTxt(QDialog):
             "The initial choice is copied from <b>XRF Maps</b> tab.",
         )
 
+        self.combo_quant_ref = QComboBox()
+        self.combo_quant_ref.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.combo_quant_ref.currentIndexChanged.connect(self.combo_quant_ref_current_index_changed)
+        self._fill_quant_ref_combo()
+        set_tooltip(
+            self.combo_quant_ref,
+            "Select reference emission line for <b>Quantitative Normalization</b>.",
+        )
+
         self.group_settings = QGroupBox("Settings (selections from XRF Maps tab)")
         grid = QGridLayout()
         grid.addWidget(self.combo_select_dataset, 0, 0)
         grid.addWidget(self.combo_normalization, 0, 1)
         grid.addWidget(self.cb_interpolate, 1, 0)
-        grid.addWidget(self.cb_quantitative, 1, 1)
+
+        hbox11 = QHBoxLayout()
+        hbox11.addWidget(self.cb_quantitative)
+        hbox11.addWidget(self.combo_quant_ref)
+
+        grid.addLayout(hbox11, 1, 1)
         self.group_settings.setLayout(grid)
 
         self.le_dir_path = LineEditReadOnly()
@@ -206,6 +222,24 @@ class DialogExportToTiffAndTxt(QDialog):
         self.cb_quantitative.setChecked(Qt.Checked if quant_norm_on else Qt.Unchecked)
 
     @property
+    def quant_ref_eline_list(self):
+        return self.__quant_ref_eline_list
+
+    @quant_ref_eline_list.setter
+    def quant_ref_eline_list(self, quant_ref_eline_list):
+        self.__quant_ref_eline_list = quant_ref_eline_list
+        self._fill_quant_ref_combo()
+
+    @property
+    def quant_ref_eline(self):
+        return self.__quant_ref_eline
+
+    @quant_ref_eline.setter
+    def quant_ref_eline(self, quant_ref_eline):
+        self.__quant_ref_eline = quant_ref_eline
+        self.combo_quant_ref.setCurrentText(quant_ref_eline)
+
+    @property
     def dset_list(self):
         return self.__dset_list
 
@@ -282,6 +316,9 @@ class DialogExportToTiffAndTxt(QDialog):
         self.__scaler_sel = index
         self._update_saved_file_groups()
 
+    def combo_quant_ref_current_index_changed(self, index):
+        self.__quant_ref_eline = self.combo_quant_ref.itemText(index)
+
     def get_selected_dset_name(self):
         index = self.__dset_sel - 1
         n = len(self.__dset_list)
@@ -297,6 +334,11 @@ class DialogExportToTiffAndTxt(QDialog):
             return None
         else:
             return self.__scaler_list[index]
+
+    def _fill_quant_ref_combo(self):
+        self.combo_quant_ref.clear()
+        self.combo_quant_ref.addItems([""] + self.__quant_ref_eline_list)
+        self.combo_quant_ref.setCurrentText(self.__quant_ref_eline)
 
     def _fill_dataset_combo(self):
         self.combo_select_dataset.clear()

@@ -874,6 +874,7 @@ class Fit1D(Atom):
         scaler_name=None,
         interpolate_on=None,
         quant_norm_on=None,
+        quant_ref_eline="",
         param_quant_analysis=None,
         file_format="tiff",
     ):
@@ -892,6 +893,11 @@ class Fit1D(Atom):
             turns interpolation of images to uniform grid ON or OFF
         quant_norm_on: bool
             turns quantitative normalization of images on or off
+        quant_ref_eline: str
+            Reference emission line for quantitative calibration, e.g. 'Cu_K'. Apply quantitative
+            normalization only to the lines with existing calibration data if ``quant_ref_eline=""``
+            (emtpy string, default).
+
         param_quant_analysis: ParamQuantitativeAnalysis
             class that contains methods for quantitative normalization
         file_format: str
@@ -941,6 +947,7 @@ class Fit1D(Atom):
             interpolate_to_uniform_grid=interpolate_on,
             dataset_name=dataset_name,
             quant_norm=quant_norm_on,
+            quant_ref_eline=quant_ref_eline,
             param_quant_analysis=param_quant_analysis,
             dataset_dict=dataset_dict,
             positions_dict=positions_dict,

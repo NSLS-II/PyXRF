@@ -1902,6 +1902,8 @@ class GlobalProcessingClasses:
         scalers, scaler_sel = self.get_maps_scaler_list()
         interpolate_on = self.get_maps_grid_interpolate()
         quant_norm_on = self.get_maps_quant_norm_enabled()
+        quant_ref_eline = self.get_maps_quant_ref_eline()
+        quant_ref_eline_list = self.get_quant_calibration_active_lines()
 
         return {
             "dset_list": dataset_list,
@@ -1910,10 +1912,20 @@ class GlobalProcessingClasses:
             "scaler_sel": scaler_sel,
             "interpolate_on": interpolate_on,
             "quant_norm_on": quant_norm_on,
+            "quant_ref_eline": quant_ref_eline,
+            "quant_ref_eline_list": quant_ref_eline_list,
         }
 
     def export_xrf_maps(
-        self, *, results_path, dataset_name, scaler_name, interpolate_on, quant_norm_on, file_formats
+        self,
+        *,
+        results_path,
+        dataset_name,
+        scaler_name,
+        interpolate_on,
+        quant_norm_on,
+        quant_ref_eline,
+        file_formats,
     ):
         # We don't want to make any changes to 'param_quant_analysis' at the original location
         #   This is a temporary copy.
@@ -1928,6 +1940,7 @@ class GlobalProcessingClasses:
                 scaler_name=scaler_name,
                 interpolate_on=interpolate_on,
                 quant_norm_on=quant_norm_on,
+                quant_ref_eline=quant_ref_eline,
                 param_quant_analysis=param_quant_analysis,
                 file_format=file_format,
             )

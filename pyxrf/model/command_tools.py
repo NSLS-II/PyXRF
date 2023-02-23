@@ -38,6 +38,7 @@ def fit_pixel_data_and_save(
     ignore_datafile_metadata=False,
     fln_quant_calib_data=None,
     quant_distance_to_sample=0,
+    quant_ref_eline="",
     method="nnls",
     pixel_bin=0,
     raise_bg=0,
@@ -86,6 +87,10 @@ def fit_pixel_data_and_save(
         distance-to-sample used in quantitative calibration. If 0, then correction for
         distance is not applied (assumed that the standard and the sample were placed
         at the same distance from the detector).
+    quant_ref_eline: str
+        Reference emission line for quantitative calibration, e.g. 'Cu_K'. Apply quantitative
+        normalization only to the lines with existing calibration data if ``quant_ref_eline=""``
+        (emtpy string, default).
     method : str, optional
         fitting method, default as nnls
     pixel_bin : int, optional
@@ -235,6 +240,7 @@ def fit_pixel_data_and_save(
                 interpolate_to_uniform_grid=interpolate_to_uniform_grid,
                 dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
                 quant_norm=quant_norm,
+                quant_ref_eline=quant_ref_eline,
                 param_quant_analysis=param_quant_analysis,
                 dataset_dict=dataset,
                 positions_dict=positions_dict,
@@ -252,6 +258,7 @@ def fit_pixel_data_and_save(
                 interpolate_to_uniform_grid=interpolate_to_uniform_grid,
                 dataset_name="dataset_fit",  # Sum of all detectors: should end with '_fit'
                 quant_norm=quant_norm,
+                quant_ref_eline=quant_ref_eline,
                 param_quant_analysis=param_quant_analysis,
                 dataset_dict=dataset,
                 positions_dict=positions_dict,
@@ -363,6 +370,7 @@ def fit_pixel_data_and_save(
                     interpolate_to_uniform_grid=interpolate_to_uniform_grid,
                     dataset_name=f"dataset_{det_channel_names[i]}_fit",  # ..._det1_fit, etc.
                     quant_norm=quant_norm,
+                    quant_ref_eline=quant_ref_eline,
                     param_quant_analysis=param_quant_analysis,
                     dataset_dict=dataset,
                     positions_dict=positions_dict,
@@ -380,6 +388,7 @@ def fit_pixel_data_and_save(
                     interpolate_to_uniform_grid=interpolate_to_uniform_grid,
                     dataset_name=f"dataset_{det_channel_names[i]}_fit",  # ..._det1_fit, etc.
                     quant_norm=quant_norm,
+                    quant_ref_eline=quant_ref_eline,
                     param_quant_analysis=param_quant_analysis,
                     dataset_dict=dataset,
                     positions_dict=positions_dict,
@@ -407,6 +416,7 @@ def pyxrf_batch(
     ignore_datafile_metadata=False,
     fln_quant_calib_data=None,
     quant_distance_to_sample=0,
+    quant_ref_eline="",
     use_snip=True,
     save_txt=False,
     save_tiff=True,
@@ -463,6 +473,10 @@ def pyxrf_batch(
         distance-to-sample used in quantitative calibration. If 0, then correction for
         distance is not applied (assumed that the standard and the sample were placed
         at the same distance from the detector).
+    quant_ref_eline: str
+        Reference emission line for quantitative calibration, e.g. 'Cu_K'. Apply quantitative
+        normalization only to the lines with existing calibration data if ``quant_ref_eline=""``
+        (emtpy string, default).
     use_snip : bool, optional
         use snip method to remove background (`True`). If `False`, then do fitting
         without removing the background (runs faster)
@@ -720,6 +734,7 @@ def pyxrf_batch(
                     ignore_datafile_metadata=ignore_datafile_metadata,
                     fln_quant_calib_data=fln_quant_calib_data,
                     quant_distance_to_sample=quant_distance_to_sample,
+                    quant_ref_eline=quant_ref_eline,
                     use_snip=use_snip,
                     save_txt=save_txt,
                     save_tiff=save_tiff,
