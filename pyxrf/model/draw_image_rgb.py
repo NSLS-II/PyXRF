@@ -297,7 +297,7 @@ class DrawImageRGB(Atom):
         then calibration is performed only for emission lines with existing calibration.
         """
         ref_eline = str(ref_eline) if (ref_eline is not None) else ""
-        if not self.param_quant_analysis.get_eline_calibration(ref_eline):
+        if not self.img_model_adv.param_quant_analysis.get_eline_calibration(ref_eline):
             ref_eline = ""
         self.quantitative_ref_eline = ref_eline
 

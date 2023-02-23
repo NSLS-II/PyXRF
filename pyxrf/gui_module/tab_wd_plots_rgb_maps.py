@@ -45,6 +45,10 @@ class PlotRgbMaps(QWidget):
         self.cb_quantitative.setChecked(self.gpc.get_maps_quant_norm_enabled())
         self.cb_quantitative.toggled.connect(self.cb_quantitative_toggled)
 
+        self.combo_quant_ref = QComboBox()
+        self.combo_quant_ref.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.combo_quant_ref.currentIndexChanged.connect(self.combo_quant_ref_current_index_changed)
+
         self.combo_pixels_positions = QComboBox()
         self._pix_pos_values = ["Pixels", "Positions"]
         self.combo_pixels_positions.addItems(self._pix_pos_values)
@@ -72,6 +76,7 @@ class PlotRgbMaps(QWidget):
         hbox.addWidget(self.combo_normalization)
         hbox.addStretch(1)
         hbox.addWidget(self.cb_quantitative)
+        hbox.addWidget(self.combo_quant_ref)
         hbox.addWidget(self.cb_interpolate)
         hbox.addWidget(self.combo_pixels_positions)
         vbox.addLayout(hbox)
@@ -93,6 +98,10 @@ class PlotRgbMaps(QWidget):
         set_tooltip(
             self.cb_quantitative,
             "Normalize the displayed XRF maps using loaded <b>Quantitative Calibration</b> data.",
+        )
+        set_tooltip(
+            self.combo_quant_ref,
+            "Select reference emission line for <b>Quantitative Normalization</b>.",
         )
         set_tooltip(
             self.combo_pixels_positions, "Switch axes units between <b>pixels</b> and <b>positional units</b>."
@@ -156,6 +165,32 @@ class PlotRgbMaps(QWidget):
 
     def cb_quantitative_toggled(self, state):
         self.gpc.set_rgb_maps_quant_norm_enabled(state)
+        self.slot_update_ranges()
+        self.signal_rgb_maps_norm_changed.emit()
+
+    @Slot()
+    def update_combo_quant_ref(self):
+        ref_elines = self.gpc.get_quant_calibration_active_lines()
+        ref_elines.sort(key=lambda x: x.lower())
+        ref_elines = [""] + ref_elines
+
+        # Currently selected emission line
+        current_eline = self.combo_quant_ref.currentText()
+        if current_eline and (current_eline not in ref_elines):
+            current_eline = ""
+
+        elines = [self.combo_quant_ref.itemText(_) for _ in range(self.combo_quant_ref.count())]
+
+        if elines != ref_elines:
+            self.combo_quant_ref.clear()
+            self.combo_quant_ref.addItems(ref_elines)
+            if current_eline:
+                self.combo_quant_ref.setCurrentText(current_eline)
+            else:
+                self.combo_quant_ref.setCurrentIndex(0)
+
+    def combo_quant_ref_current_index_changed(self, index):
+        self.gpc.set_rgb_maps_quant_ref_eline(self.combo_quant_ref.itemText(index))
         self.slot_update_ranges()
         self.signal_rgb_maps_norm_changed.emit()
 

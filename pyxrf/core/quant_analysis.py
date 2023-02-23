@@ -1745,9 +1745,6 @@ class ParamQuantitativeAnalysis:
         #   processed without normalization, so the sample data will not be normalized as well.
         #   But the results are expected to be much better if the scaler is used.
 
-        print(f"data_name = {data_name} ============================")  ##
-        print(f"ref_name = {ref_name} ============================")  ##
-
         run_quant = False
         if e_info:
             run_quant = True

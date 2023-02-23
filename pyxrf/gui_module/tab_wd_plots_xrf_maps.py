@@ -151,6 +151,7 @@ class PlotXrfMaps(QWidget):
         state_compute = global_gui_variables["gui_state"]["running_computations"]
         self.mpl_canvas.setVisible(not state_compute)
 
+    @Slot()
     def update_combo_quant_ref(self):
         ref_elines = self.gpc.get_quant_calibration_active_lines()
         ref_elines.sort(key=lambda x: x.lower())
@@ -194,9 +195,8 @@ class PlotXrfMaps(QWidget):
         self.signal_maps_dataset_selection_changed.emit()
 
     def combo_quant_ref_current_index_changed(self, index):
-        pass
-        # self.gpc.set_maps_selected_dataset(index + 1)
-        # self.signal_maps_dataset_selection_changed.emit()
+        self.gpc.set_maps_quant_ref_eline(self.combo_quant_ref.itemText(index))
+        self.signal_maps_norm_changed.emit()
 
     @Slot()
     def combo_select_dataset_update_current_index(self):
