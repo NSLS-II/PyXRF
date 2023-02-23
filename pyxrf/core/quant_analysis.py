@@ -1792,9 +1792,7 @@ class ParamQuantitativeAnalysis:
         if run_quant and ref_name:
             try:
                 atomic_scaling_factor = compute_atomic_scaling_factor(
-                    ref_eline=ref_name,
-                    quant_eline=data_name,
-                    incident_energy=self.experiment_incident_energy
+                    ref_eline=ref_name, quant_eline=data_name, incident_energy=self.experiment_incident_energy
                 )
             except ValueError as ex:
                 logger.error(ex)

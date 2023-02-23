@@ -128,6 +128,10 @@ class PlotXrfMaps(QWidget):
             self.cb_quantitative,
             "Normalize the displayed XRF maps using loaded <b>Quantitative Calibration</b> data.",
         )
+        set_tooltip(
+            self.combo_quant_ref,
+            "Select reference emission line for <b>Quantitative Normalization</b>.",
+        )
         set_tooltip(self.combo_color_scheme, "Select <b>color scheme</b>")
         set_tooltip(
             self.combo_linear_log,
