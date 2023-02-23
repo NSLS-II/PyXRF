@@ -1374,6 +1374,7 @@ def output_data_to_tiff(
                     scaler_dict=fit_output,
                     scaler_name_default=None,  # We don't want data to be scaled
                     data_name=data_name,
+                    ref_name=None,
                     name_not_scalable=None,
                 )  # For simplicity, all saved maps are normalized
                 if quant_norm_applied:

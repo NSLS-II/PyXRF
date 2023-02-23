@@ -6,7 +6,7 @@ import math
 import json
 import copy
 import time as ttime
-from .xrf_utils import split_compound_mass, generate_eline_list
+from .xrf_utils import split_compound_mass, generate_eline_list, compute_atomic_scaling_factor
 from .utils import normalize_data_by_scaler, convert_time_to_nexus_string
 import logging
 
@@ -1174,6 +1174,7 @@ class ParamQuantitativeAnalysis:
     data_normalized = apply_quantitative_normalization(<data_in>, scaler_dict=<scaler_dict>,
                                                        scaler_name_default = <scaler_name_default>,
                                                        data_name = <emission_line>,
+                                                       ref_name = <ref_emission_line or None>,
                                                        name_not_scalable=["sclr", "sclr2", "time" etc.]):
     """
 
@@ -1563,6 +1564,12 @@ class ParamQuantitativeAnalysis:
                     return e_info
         return None
 
+    def get_active_emission_lines(self):
+        """
+        Returns copy of the list of active emission lines.
+        """
+        return copy.copy(self.active_emission_lines)
+
     def get_calibrations_selected(self):
         r"""
         Returns the dictionary of calibration data from selected data entries for each
@@ -1732,13 +1739,14 @@ class ParamQuantitativeAnalysis:
         if name_not_scalable and (data_name in name_not_scalable):
             return data_in, is_quant_normalization_applied
 
-        e_info = self.get_eline_calibration(data_name)
+        e_info = self.get_eline_calibration(ref_name if ref_name else data_name)
         # Scaler is not strictly required to perform quanitative calibration, so it is allowed
         #   to run the function without a scaler. The scaler name is None if the standard was
         #   processed without normalization, so the sample data will not be normalized as well.
         #   But the results are expected to be much better if the scaler is used.
 
         print(f"data_name = {data_name} ============================")  ##
+        print(f"ref_name = {ref_name} ============================")  ##
 
         run_quant = False
         if e_info:
@@ -1780,6 +1788,18 @@ class ParamQuantitativeAnalysis:
                     f"for this dataset. Quantitative normalization is skipped"
                 )
 
+        atomic_scaling_factor = 1
+        if run_quant and ref_name:
+            try:
+                atomic_scaling_factor = compute_atomic_scaling_factor(
+                    ref_eline=ref_name,
+                    quant_eline=data_name,
+                    incident_energy=self.experiment_incident_energy
+                )
+            except ValueError as ex:
+                logger.error(ex)
+                run_quant = False
+
         if run_quant:
             # Quantitative calibration for the emission line is loaded, so normalization is
             #   performed. The scaler used to obtain calibration is used. Note, that
@@ -1795,7 +1815,8 @@ class ParamQuantitativeAnalysis:
             #   Make a copy in this case.
             if data_arr is data_in:
                 data_arr = data_in.copy()
-            data_arr *= e_info["density"] / e_info["fluorescence"]
+            scaling_coef = e_info["density"] / e_info["fluorescence"] * atomic_scaling_factor
+            data_arr *= scaling_coef
             # If distance to sample is set for calibration data and current scan, then apply correction
             #   If either value is ZERO, then don't perform the correction.
             r1 = e_info["distance_to_sample"]
@@ -1811,12 +1832,12 @@ class ParamQuantitativeAnalysis:
                 #   (fluorescence is reduced as r**2)
                 data_arr *= (r2 / r1) ** 2
                 logger.info(
-                    f"Emission line {data_name}. Correction for distance-to_sample was performed "
+                    f"Emission line {data_name}. Correction for distance-to-sample was performed "
                     f"(standard: {r1}, sample: {r2})"
                 )
             else:
                 logger.info(
-                    f"Emission line {data_name}. Correction for distance-to_sample was skipped "
+                    f"Emission line {data_name}. Correction for distance-to-sample was skipped "
                     f"(standard: {r1}, sample: {r2})"
                 )
             is_quant_normalization_applied = True

@@ -106,6 +106,10 @@ class DrawImageRGB(Atom):
     # Variable that indicates whether quanitative normalization should be applied to data
     #   Associated with 'Quantitative' checkbox
     quantitative_normalization = Bool(False)
+    # The name of the emision line used for quantitative normalization. If "", then
+    #   quantitative normalization is applied only to the emission lines with calibration.
+    #   Assoicated with the respective combobox.
+    quantitative_ref_eline = Str()
 
     rgb_name_list = List()  # List of names for RGB channels printed on the plot
 
@@ -287,6 +291,19 @@ class DrawImageRGB(Atom):
         self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
 
+    def set_quantitative_ref_eline(self, ref_eline):
+        """
+        Set emission line used as a reference for quantitative normalization. If empty string,
+        then calibration is performed only for emission lines with existing calibration.
+        """
+        ref_eline = str(ref_eline) if (ref_eline is not None) else ""
+        if not self.param_quant_analysis.get_eline_calibration(ref_eline):
+            ref_eline = ""
+        self.quantitative_ref_eline = ref_eline
+
+        self.set_low_high_value()  # reset low high values based on normalization
+        self.show_image()
+
     def set_low_high_value(self):
         """Set default low and high values based on normalization for each image."""
         # do not apply scaler norm on not scalable data
@@ -300,6 +317,7 @@ class DrawImageRGB(Atom):
                     scaler_dict=self.scaler_norm_dict,
                     scaler_name_default=self.get_selected_scaler_name(),
                     data_name=data_name,
+                    ref_name=self.quantitative_ref_eline,
                     name_not_scalable=self.name_not_scalable,
                 )
             else:
@@ -376,6 +394,7 @@ class DrawImageRGB(Atom):
                     scaler_dict=self.scaler_norm_dict,
                     scaler_name_default=self.get_selected_scaler_name(),
                     data_name=k,
+                    ref_name=self.quantitative_ref_eline,
                     name_not_scalable=self.name_not_scalable,
                 )
             else:

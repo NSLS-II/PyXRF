@@ -617,6 +617,12 @@ class GlobalProcessingClasses:
     def set_maps_quant_norm_enabled(self, enable):
         self.img_model_adv.enable_quantitative_normalization(enable)
 
+    def get_maps_quant_ref_eline(self):
+        return self.img_model_adv.quantitative_ref_eline
+
+    def set_maps_quant_ref_eline(self, ref_eline):
+        self.img_model_adv.set_quantitative_ref_eline(ref_eline)
+
     def get_maps_scale_opt(self):
         """Returns selected plot type: `Linear` or `Log`"""
         return self.img_model_adv.scale_opt
@@ -819,6 +825,12 @@ class GlobalProcessingClasses:
     def set_rgb_maps_quant_norm_enabled(self, enable):
         self.img_model_rgb.enable_quantitative_normalization(enable)
 
+    def get_rgb_maps_quant_ref_eline(self):
+        return self.img_model_rgb.quantitative_ref_eline
+
+    def set_rgb_maps_quant_ref_eline(self, ref_eline):
+        self.img_model_rgb.set_quantitative_ref_eline(ref_eline)
+
     def compute_rgb_map_ranges(self):
         self.img_model_rgb.set_low_high_value()
 
@@ -831,6 +843,9 @@ class GlobalProcessingClasses:
     #      to loading and management of quantitative calibration data
     def load_quantitative_calibration_data(self, file_path):
         self.img_model_adv.load_quantitative_calibration_data(file_path)
+
+    def get_quant_calibration_active_lines(self):
+        return self.img_model_adv.param_quant_analysis.get_active_emission_lines()
 
     def get_quant_calibration_data(self):
         return self.img_model_adv.param_quant_analysis.calibration_data

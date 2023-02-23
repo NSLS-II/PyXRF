@@ -102,6 +102,10 @@ class DrawImageAdvanced(Atom):
     # Variable that indicates whether quanitative normalization should be applied to data
     #   Associated with 'Quantitative' checkbox
     quantitative_normalization = Bool(False)
+    # The name of the emision line used for quantitative normalization. If "", then
+    #   quantitative normalization is applied only to the emission lines with calibration.
+    #   Assoicated with the respective combobox.
+    quantitative_ref_eline = Str()
 
     # The following fields are used for storing parameters used for quantitative analysis
     param_quant_analysis = Typed(object)
@@ -395,6 +399,25 @@ class DrawImageAdvanced(Atom):
         self.set_low_high_value()  # reset low high values based on normalization
         self.show_image()
 
+    def set_quantitative_ref_eline(self, ref_eline):
+        """
+        Set emission line used as a reference for quantitative normalization. If empty string,
+        then calibration is performed only for emission lines with existing calibration.
+        """
+        ref_eline = str(ref_eline) if (ref_eline is not None) else ""
+        if not self.param_quant_analysis.get_eline_calibration(ref_eline):
+            ref_eline = ""
+        self.quantitative_ref_eline = ref_eline
+
+        # Propagate current value of 'self.param_quant_analysis' (activate 'observer' functions)
+        # TODO: the following may not be not needed in the view of the current framework
+        tmp = self.param_quant_analysis
+        self.param_quant_analysis = ParamQuantitativeAnalysis()
+        self.param_quant_analysis = tmp
+
+        self.set_low_high_value()  # reset low high values based on normalization
+        self.show_image()
+
     def set_plot_scatter(self, is_scatter):
         self.scatter_show = is_scatter
         self.show_image()
@@ -449,6 +472,7 @@ class DrawImageAdvanced(Atom):
                     scaler_dict=self.scaler_norm_dict,
                     scaler_name_default=self.get_selected_scaler_name(),
                     data_name=data_name,
+                    ref_name=self.quantitative_ref_eline,
                     name_not_scalable=self.name_not_scalable,
                 )
             else:
@@ -620,6 +644,7 @@ class DrawImageAdvanced(Atom):
                     scaler_dict=self.scaler_norm_dict,
                     scaler_name_default=self.get_selected_scaler_name(),
                     data_name=k,
+                    ref_name=self.quantitative_ref_eline,
                     name_not_scalable=self.name_not_scalable,
                 )
             else:
