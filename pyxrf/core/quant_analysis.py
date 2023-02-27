@@ -6,7 +6,12 @@ import math
 import json
 import copy
 import time as ttime
-from .xrf_utils import split_compound_mass, generate_eline_list, compute_atomic_scaling_factor
+from .xrf_utils import (
+    split_compound_mass,
+    generate_eline_list,
+    compute_atomic_scaling_factor,
+    check_if_eline_supported,
+)
 from .utils import normalize_data_by_scaler, convert_time_to_nexus_string
 import logging
 
@@ -1746,7 +1751,7 @@ class ParamQuantitativeAnalysis:
         #   But the results are expected to be much better if the scaler is used.
 
         run_quant = False
-        if e_info:
+        if e_info and check_if_eline_supported(data_name):
             run_quant = True
             e_info_scaler = e_info["scaler_name"]
 

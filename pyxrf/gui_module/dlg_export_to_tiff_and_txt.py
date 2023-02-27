@@ -1,3 +1,4 @@
+import copy
 import os
 
 from qtpy.QtWidgets import (
@@ -227,6 +228,8 @@ class DialogExportToTiffAndTxt(QDialog):
 
     @quant_ref_eline_list.setter
     def quant_ref_eline_list(self, quant_ref_eline_list):
+        quant_ref_eline_list = copy.copy(quant_ref_eline_list)
+        quant_ref_eline_list.sort(key=lambda x: x.lower())
         self.__quant_ref_eline_list = quant_ref_eline_list
         self._fill_quant_ref_combo()
 

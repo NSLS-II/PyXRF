@@ -304,8 +304,8 @@ class FitMapsWidget(FormBaseWidget):
         dlg.scaler_sel = params["scaler_sel"]
         dlg.interpolate_on = params["interpolate_on"]
         dlg.quant_norm_on = params["quant_norm_on"]
-        dlg.quant_ref_eline = params["quant_ref_eline"]
         dlg.quant_ref_eline_list = params["quant_ref_eline_list"]
+        dlg.quant_ref_eline = params["quant_ref_eline"]
 
         res = dlg.exec()
         if res:
