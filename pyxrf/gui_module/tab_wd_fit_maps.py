@@ -304,6 +304,8 @@ class FitMapsWidget(FormBaseWidget):
         dlg.scaler_sel = params["scaler_sel"]
         dlg.interpolate_on = params["interpolate_on"]
         dlg.quant_norm_on = params["quant_norm_on"]
+        dlg.quant_ref_eline_list = params["quant_ref_eline_list"]
+        dlg.quant_ref_eline = params["quant_ref_eline"]
 
         res = dlg.exec()
         if res:
@@ -313,6 +315,7 @@ class FitMapsWidget(FormBaseWidget):
                 scaler_name = dlg.get_selected_scaler_name()
                 interpolate_on = dlg.interpolate_on
                 quant_norm_on = dlg.quant_norm_on
+                quant_ref_eline = dlg.quant_ref_eline
                 file_formats = []
                 if dlg.save_tiff:
                     file_formats.append("tiff")
@@ -324,6 +327,7 @@ class FitMapsWidget(FormBaseWidget):
                     scaler_name=scaler_name,
                     interpolate_on=interpolate_on,
                     quant_norm_on=quant_norm_on,
+                    quant_ref_eline=quant_ref_eline,
                     file_formats=file_formats,
                 )
                 if file_formats:

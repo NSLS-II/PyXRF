@@ -57,6 +57,10 @@ class PlotXrfMaps(QWidget):
         self.cb_quantitative.setChecked(self.gpc.get_maps_quant_norm_enabled())
         self.cb_quantitative.toggled.connect(self.cb_quantitative_toggled)
 
+        self.combo_quant_ref = QComboBox()
+        self.combo_quant_ref.setSizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.combo_quant_ref.currentIndexChanged.connect(self.combo_quant_ref_current_index_changed)
+
         self.combo_color_scheme = QComboBox()
         # TODO: make color schemes global
         self._color_schemes = ("viridis", "jet", "bone", "gray", "Oranges", "hot")
@@ -99,6 +103,7 @@ class PlotXrfMaps(QWidget):
         hbox.addWidget(self.combo_normalization)
         hbox.addStretch(3)
         hbox.addWidget(self.cb_quantitative)
+        hbox.addWidget(self.combo_quant_ref)
         hbox.addStretch(1)
         hbox.addWidget(self.combo_linear_log)
         hbox.addWidget(self.combo_pixels_positions)
@@ -123,6 +128,10 @@ class PlotXrfMaps(QWidget):
             self.cb_quantitative,
             "Normalize the displayed XRF maps using loaded <b>Quantitative Calibration</b> data.",
         )
+        set_tooltip(
+            self.combo_quant_ref,
+            "Select reference emission line for <b>Quantitative Normalization</b>.",
+        )
         set_tooltip(self.combo_color_scheme, "Select <b>color scheme</b>")
         set_tooltip(
             self.combo_linear_log,
@@ -141,6 +150,27 @@ class PlotXrfMaps(QWidget):
         # Hide Matplotlib canvas during computations
         state_compute = global_gui_variables["gui_state"]["running_computations"]
         self.mpl_canvas.setVisible(not state_compute)
+
+    @Slot()
+    def update_combo_quant_ref(self):
+        ref_elines = self.gpc.get_quant_calibration_active_lines()
+        ref_elines.sort(key=lambda x: x.lower())
+        ref_elines = [""] + ref_elines
+
+        # Currently selected emission line
+        current_eline = self.combo_quant_ref.currentText()
+        if current_eline and (current_eline not in ref_elines):
+            current_eline = ""
+
+        elines = [self.combo_quant_ref.itemText(_) for _ in range(self.combo_quant_ref.count())]
+
+        if elines != ref_elines:
+            self.combo_quant_ref.clear()
+            self.combo_quant_ref.addItems(ref_elines)
+            if current_eline:
+                self.combo_quant_ref.setCurrentText(current_eline)
+            else:
+                self.combo_quant_ref.setCurrentIndex(0)
 
     def pb_image_wizard_clicked(self):
         # Position the window in relation ot the main window (only when called once)
@@ -163,6 +193,10 @@ class PlotXrfMaps(QWidget):
     def combo_select_dataset_current_index_changed(self, index):
         self.gpc.set_maps_selected_dataset(index + 1)
         self.signal_maps_dataset_selection_changed.emit()
+
+    def combo_quant_ref_current_index_changed(self, index):
+        self.gpc.set_maps_quant_ref_eline(self.combo_quant_ref.itemText(index))
+        self.signal_maps_norm_changed.emit()
 
     @Slot()
     def combo_select_dataset_update_current_index(self):

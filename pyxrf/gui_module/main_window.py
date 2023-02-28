@@ -335,6 +335,13 @@ class MainWindow(QMainWindow):
 
         # Quantitative calibration changed
         self.wnd_load_quantitative_calibration.signal_quantitative_calibration_changed.connect(
+            self.central_widget.right_panel.tab_plot_xrf_maps.update_combo_quant_ref
+        )
+        self.wnd_load_quantitative_calibration.signal_quantitative_calibration_changed.connect(
+            self.central_widget.right_panel.tab_plot_rgb_maps.update_combo_quant_ref
+        )
+
+        self.wnd_load_quantitative_calibration.signal_quantitative_calibration_changed.connect(
             self.central_widget.right_panel.tab_plot_rgb_maps.slot_update_ranges
         )
         self.wnd_load_quantitative_calibration.signal_quantitative_calibration_changed.connect(

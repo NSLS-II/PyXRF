@@ -387,3 +387,134 @@ def get_eline_energy(elemental_line):
         energy = 0
 
     return energy
+
+
+def compute_cs(Z, e, *, line=None):
+    """
+    Calculate full fluorescence cross section of for a specified emission line using Kissel method (in Barns).
+
+    Parameters
+    ----------
+    Z: int
+        Atomic number of an element
+    e: float
+        Incident energy in keV
+
+    Returns
+    -------
+    float
+        Total cross section value in Barns
+    """
+    if line not in ("K", "L", "M", "k", "l", "m"):
+        raise ValueError(f"Unrecognized emission line: {line!r}. Supported values: 'K', 'L', 'M'")
+
+    line = line.upper()
+
+    if line == "K":
+        shells = [xraylib.K_SHELL]
+    elif line == "L":
+        shells = [xraylib.L1_SHELL, xraylib.L2_SHELL, xraylib.L3_SHELL]
+    elif line == "M":
+        shells = [xraylib.M1_SHELL, xraylib.M2_SHELL, xraylib.M3_SHELL, xraylib.M4_SHELL, xraylib.M5_SHELL]
+
+    try:
+        cs_total = 0
+        for shell in shells:
+            cs_total += xraylib.CSb_FluorShell_Kissel(Z, shell, e)
+        cs_total = round(cs_total, 2)
+
+    except ValueError as ex:
+        msg = f"Failed to compute cross section for an element (Z={Z} line={line}, energy={e} keV): {ex}"
+        raise ValueError(msg) from ex
+
+    return cs_total
+
+
+def compute_cs_ratio(eline1, eline2, e):
+    """
+    Compute ratio of CS for eline1 and eline2 (eline2 - denominator).
+
+    Parameters
+    ----------
+    eline1, eline2: str
+        Emission line in the form 'Ca_K'.
+    e: float
+        Incident energy, keV
+
+    Returns
+    -------
+    float
+        Ratio of cross sections of cs(eline1)/cs(eline2).
+    """
+
+    def split_eline(eline):
+        try:
+            el, line = eline.split("_")
+            if get_element_atomic_number(el) == 0:
+                raise ValueError(f"Invalid element {el!r} (emission line: {eline!r})")
+            if line not in ("K", "L", "M", "k", "l", "m"):
+                raise ValueError(f"Invalid line {line} (emission line: {eline!r})")
+        except Exception as ex:
+            msg = f"Invalid emission line: {eline!r}: {ex}"
+            raise ValueError(msg) from ex
+        return el, line
+
+    el1, line1 = split_eline(eline1)
+    el2, line2 = split_eline(eline2)
+
+    z1 = get_element_atomic_number(el1)
+    z2 = get_element_atomic_number(el2)
+
+    cs1 = compute_cs(Z=z1, e=e, line=line1)
+    cs2 = compute_cs(Z=z2, e=e, line=line2)
+
+    if cs2 == 0:
+        raise ValueError(f"Failed to compute ratio of CSs for {eline1!r} and {eline2!r}")
+    cs_ratio = cs1 / cs2
+
+    return cs_ratio
+
+
+def compute_atomic_weight(eline):
+    try:
+        el = eline.split("_")[0]
+        Z = get_element_atomic_number(el)
+        if not Z:
+            msg = f"Unrecognized element {el!r} in emission line {eline!r}"
+            raise ValueError(msg)
+        aw = xraylib.AtomicWeight(Z)
+    except Exception as ex:
+        msg = f"Failed to compute atomic weight for the element with emission line {eline!r}: {ex}"
+        raise ValueError(msg) from ex
+    return aw
+
+
+def compute_atomic_scaling_factor(ref_eline, quant_eline, incident_energy):
+    """
+    Find the ratio of fluorescence cross sections multiplied with atmomic mass ratio of
+    two differene fluorescent lines (``I1/I2 = 1``).
+
+    .. code-block::
+                                  _________________
+        rho1 = rho2*(I1/I2)*|(cs2/cs1)*(A1/A2)|
+                            |_________________|
+                                this term
+
+    Parameters
+    ----------
+    ref_eline: str
+        Reference emission line (with existing calibration data), e.g. ``Ca_K``
+    quant_eline: str
+        Emission line with missing calibration.
+    inident_energy: float
+        Incident energy, keV
+
+    Returns
+    -------
+    float
+        The computed value of ``(cs2/cs1)*(A1/A2)``
+    """
+    A1 = compute_atomic_weight(quant_eline)
+    A2 = compute_atomic_weight(ref_eline)
+    cs_ratio = compute_cs_ratio(ref_eline, quant_eline, incident_energy)
+    return (A1 / A2) * cs_ratio

@@ -1168,6 +1168,7 @@ def output_data(
     use_average=False,
     dataset_name=None,
     quant_norm=False,
+    quant_ref_eline="",
     param_quant_analysis=None,
     positions_dict=None,
     interpolate_to_uniform_grid=False,
@@ -1198,6 +1199,11 @@ def output_data(
         should end with the suffix '_fit' (for sum of all channels), '_det1_fit" etc.
     quant_norm : bool
         True - quantitative normalization is enabled, False - disabled
+    quant_ref_eline: str
+        Reference emission line for quantitative calibration, e.g. 'Cu_K'. Apply quantitative
+        normalization only to the lines with existing calibration data if ``quant_ref_eline=""``
+        (emtpy string, default).
+
     param_quant_analysis : ParamQuantitativeAnalysis
         reference to class, which contains parameters for quantitative normalization
     interpolate_to_uniform_grid : bool
@@ -1278,6 +1284,7 @@ def output_data(
         name_append="",
         scaler_name=scaler_name,
         quant_norm=quant_norm,
+        quant_ref_eline=quant_ref_eline,
         param_quant_analysis=param_quant_analysis,
         use_average=use_average,
         scaler_name_list=scaler_name_list,
@@ -1293,6 +1300,7 @@ def output_data_to_tiff(
     scaler_name=None,
     scaler_name_list=None,
     quant_norm=False,
+    quant_ref_eline="",
     param_quant_analysis=None,
     use_average=False,
 ):
@@ -1317,6 +1325,10 @@ def output_data_to_tiff(
         The list of names of scalers that may exist in the dataset 'dataset_dict'
     quant_norm : bool
         True - apply quantitative normalization, False - use normalization by scaler
+    quant_ref_eline: str
+        Reference emission line for quantitative calibration, e.g. 'Cu_K'. Apply quantitative
+        normalization only to the lines with existing calibration data if ``quant_ref_eline=""``
+        (emtpy string, default).
     param_quant_analysis : ParamQuantitativeAnalysis
         reference to class, which contains parameters for quantitative normalization,
         if None, then quantitative normalization will be skipped
@@ -1374,6 +1386,7 @@ def output_data_to_tiff(
                     scaler_dict=fit_output,
                     scaler_name_default=None,  # We don't want data to be scaled
                     data_name=data_name,
+                    ref_name=quant_ref_eline,
                     name_not_scalable=None,
                 )  # For simplicity, all saved maps are normalized
                 if quant_norm_applied:
