@@ -26,6 +26,28 @@ version. The instructions show how to install earlier version of ``PyQt5`` from 
     $ conda install pyxrf -c conda-forge
 
 
+.. note::
+
+  If you experience problems using `conda`, in particular if `conda` gets stuck trying to resolve
+  the environment, you may try using `mamba`, which is designed as a drop-in replacement for
+  `conda`. Once you install *Miniconda* or *Anaconda*, install `mamba` in the base environment:
+
+  .. code:: bash
+
+    $ conda install mamba -n base -c conda-forge
+
+  Then use `mamba` instead of `conda` in all commands. Mamba may not respect pinned versions of
+  packages. Since PyXRF currently does not work with `pyqt` v5.15, explicitly specify the version
+  `"pyqt<5.15"` during installation, for example
+
+  .. code:: bash
+
+    $ mamba create -n pyxrf-env python=3.9 pip -c conda-forge
+    $ mamba activate pyxrf-env
+    $ mamba install pyxrf "pyqt<5.15" -c conda-forge
+
+  You may still use `conda` where it works well, e.g. to activate an existing environment.
+
 1. Install `Miniconda3 <http://conda.pydata.org/miniconda.html>`_  or
    `Anaconda <https://www.anaconda.com/distribution>`_. Select the latest version.
    *Miniconda* is sufficient for running PyXRF and contains the minimum number
