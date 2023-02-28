@@ -2,6 +2,27 @@
 Release Notes
 =============
 
+v1.0.22 (2022-02-28)
+====================
+
+Added
+-----
+
+- Extended functionality of quantitative analysis feature: additional combo box allows
+  to select reference emission line from the list of emission lines with existing calibration.
+  The calibration for the reference emission lines is used to compute quantitative normalization
+  coefficients for all other emission lines. If the reference line is not selected,
+  then quantitative normalization is applied only to the emission lines with existing
+  calibration (old functionality)
+
+Fixed
+-----
+
+- Fixed the code for loading step scan data at SRX. PyXRF can now load the step scan
+  data recorded using 2023-1.0 environment.
+
+- PyXRF is now compatible with Matplotlib 3.7.0.
+
 v1.0.21 (2022-12-11)
 ====================
 
