@@ -724,7 +724,7 @@ class LinePlotModel(Atom):
 
         # Remove the plot if it exists
         if self.plot_energy_barh in self._ax.collections:
-            self._ax.collections.remove(self.plot_energy_barh)
+            self.plot_energy_barh.remove()
 
         # Create the new plot (based on new parameters if necessary
         self.plot_energy_barh = BrokenBarHCollection.span_where(
@@ -1468,7 +1468,7 @@ class LinePlotModel(Atom):
 
         # Remove the plot if it exists
         if barh_existing in axes.collections:
-            axes.collections.remove(barh_existing)
+            barh_existing.remove()
 
         # Create the new plot (based on new parameters if necessary
         barh_new = BrokenBarHCollection.span_where(
