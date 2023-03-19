@@ -1,12 +1,13 @@
-import pytest
 import numpy.testing as npt
-from PyQt5.QtWidgets import QLineEdit
+import pytest
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QDoubleValidator
+from PyQt5.QtWidgets import QLineEdit
+
 from pyxrf.gui_module.useful_widgets import (
-    IntValidatorStrict,
-    IntValidatorRelaxed,
     DoubleValidatorRelaxed,
+    IntValidatorRelaxed,
+    IntValidatorStrict,
     RangeManager,
 )
 

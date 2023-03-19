@@ -1,47 +1,43 @@
 from __future__ import absolute_import
 
-import numpy as np
-import time
 import copy
-import os
-import re
+import logging
 import math
-from collections import OrderedDict
 import multiprocessing
 import multiprocessing.pool
-import h5py
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import lmfit
+import os
 import platform
+import re
+import time
+from collections import OrderedDict
 from distutils.version import LooseVersion
-import dask.array as da
 
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-from skbeam.core.fitting.xrf_model import (
-    ModelSpectrum,
-    update_parameter_dict,
-    # sum_area,
-    set_parameter_bound,
-    # ParamController,
+import dask.array as da
+import h5py
+import lmfit
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+from atom.api import Atom, Bool, Dict, Float, Int, List, Str, Typed, observe
+from skbeam.core.fitting.xrf_model import (  # sum_area,; ParamController,; linear_spectrum_fitting,
     K_LINE,
     L_LINE,
     M_LINE,
-    nnls_fit,
-    construct_linear_model,
-    # linear_spectrum_fitting,
-    register_strategy,
     TRANSITIONS_LOOKUP,
+    ModelSpectrum,
+    construct_linear_model,
+    nnls_fit,
+    register_strategy,
+    set_parameter_bound,
+    update_parameter_dict,
 )
 from skbeam.fluorescence import XrfElement as Element
-from .parameters import calculate_profile, fit_strategy_list, trim_escape_peak, define_range
-from .fileio import save_fitdata_to_hdf, output_data
 
 from ..core.fitting import rfactor
+from ..core.map_processing import TerminalProgressBar, fit_xrf_map, prepare_xrf_map, snip_method_numba
 from ..core.quant_analysis import ParamQuantEstimation
-from ..core.map_processing import fit_xrf_map, TerminalProgressBar, prepare_xrf_map, snip_method_numba
-
-import logging
+from .fileio import output_data, save_fitdata_to_hdf
+from .parameters import calculate_profile, define_range, fit_strategy_list, trim_escape_peak
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
-from qtpy.QtWidgets import QVBoxLayout, QDialog, QDialogButtonBox, QTextEdit
-
 import logging
+
+from qtpy.QtWidgets import QDialog, QDialogButtonBox, QTextEdit, QVBoxLayout
 
 logger = logging.getLogger(__name__)
 

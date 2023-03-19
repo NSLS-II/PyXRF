@@ -1,6 +1,7 @@
 import numpy as np
 import numpy.testing as npt
 import pytest
+
 from pyxrf.gui_support.gpc_class import GlobalProcessingClasses
 
 # =====================================================================

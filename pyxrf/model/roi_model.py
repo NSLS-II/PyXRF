@@ -1,19 +1,17 @@
 from __future__ import absolute_import, division, print_function
 
-import numpy as np
-from collections import OrderedDict
+import logging
 import re
+from collections import OrderedDict
 
-from atom.api import Atom, Str, observe, List, Int, Bool, Typed
-
-from skbeam.fluorescence import XrfElement as Element
+import numpy as np
+from atom.api import Atom, Bool, Int, List, Str, Typed, observe
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
+from skbeam.fluorescence import XrfElement as Element
 
+from ..core.map_processing import TerminalProgressBar, compute_selected_rois
 from .fileio import save_fitdata_to_hdf
 from .fit_spectrum import get_energy_bin_range
-from ..core.map_processing import compute_selected_rois, TerminalProgressBar
-
-import logging
 
 logger = logging.getLogger(__name__)
 

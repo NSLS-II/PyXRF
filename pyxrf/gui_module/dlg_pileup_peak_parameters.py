@@ -1,10 +1,10 @@
-from qtpy.QtWidgets import QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout
-from qtpy.QtGui import QDoubleValidator, QRegExpValidator
-from qtpy.QtCore import QRegExp
-
-from .useful_widgets import LineEditReadOnly, set_tooltip, LineEditExtended
-
 import logging
+
+from qtpy.QtCore import QRegExp
+from qtpy.QtGui import QDoubleValidator, QRegExpValidator
+from qtpy.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QLabel, QVBoxLayout
+
+from .useful_widgets import LineEditExtended, LineEditReadOnly, set_tooltip
 
 logger = logging.getLogger(__name__)
 

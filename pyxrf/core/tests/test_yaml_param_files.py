@@ -1,7 +1,8 @@
+import os
+
 import jsonschema
 import numpy as np
 import pytest
-import os
 
 from pyxrf.core.yaml_param_files import (
     _parse_docstring_parameters,

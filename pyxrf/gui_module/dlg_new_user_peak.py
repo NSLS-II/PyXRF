@@ -1,8 +1,8 @@
-from qtpy.QtWidgets import QVBoxLayout, QLabel, QDialog, QDialogButtonBox, QGridLayout
+import logging
+
+from qtpy.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QLabel, QVBoxLayout
 
 from .useful_widgets import LineEditReadOnly, set_tooltip
-
-import logging
 
 logger = logging.getLogger(__name__)
 

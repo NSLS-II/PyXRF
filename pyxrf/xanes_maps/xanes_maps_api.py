@@ -1,27 +1,27 @@
+import csv
+import logging
 import os
 import re
 import sys
-import numpy as np
-import csv
-from pystackreg import StackReg
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider, Button, TextBox
-from matplotlib.patches import Rectangle, FancyArrow
 import time as ttime
-import tifffile
-import jsonschema
-import pandas as pd
 
-from ..model.load_data_from_db import make_hdf
+import jsonschema
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import tifffile
+from matplotlib.patches import FancyArrow, Rectangle
+from matplotlib.widgets import Button, Slider, TextBox
+from pystackreg import StackReg
+
+from ..core.fitting import fit_spectrum, rfactor_compute
+from ..core.map_processing import dask_client_create
+from ..core.utils import convert_time_to_nexus_string, grid_interpolate, normalize_data_by_scaler
+from ..core.xrf_utils import check_if_eline_is_activated, check_if_eline_supported
+from ..core.yaml_param_files import create_yaml_parameter_file, read_yaml_parameter_file
 from ..model.command_tools import pyxrf_batch
 from ..model.fileio import read_hdf_APS
-from ..core.utils import grid_interpolate, normalize_data_by_scaler, convert_time_to_nexus_string
-from ..core.xrf_utils import check_if_eline_is_activated, check_if_eline_supported
-from ..core.fitting import fit_spectrum, rfactor_compute
-from ..core.yaml_param_files import create_yaml_parameter_file, read_yaml_parameter_file
-from ..core.map_processing import dask_client_create
-
-import logging
+from ..model.load_data_from_db import make_hdf
 
 logger = logging.getLogger(__name__)
 

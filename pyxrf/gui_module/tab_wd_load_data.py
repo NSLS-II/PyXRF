@@ -1,33 +1,33 @@
+import logging
 import os
 
+from qtpy.QtCore import QRunnable, Qt, QThreadPool, Signal, Slot
 from qtpy.QtWidgets import (
-    QPushButton,
-    QHBoxLayout,
-    QVBoxLayout,
-    QGroupBox,
     QCheckBox,
     QComboBox,
-    QListWidget,
-    QListWidgetItem,
     QDialog,
     QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
+    QPushButton,
+    QVBoxLayout,
 )
-from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
 
-from .useful_widgets import (
-    LineEditReadOnly,
-    adjust_qlistwidget_height,
-    global_gui_parameters,
-    PushButtonMinimumWidth,
-    set_tooltip,
-    clear_gui_state,
-)
-from .form_base_widget import FormBaseWidget
 from .dlg_load_mask import DialogLoadMask
 from .dlg_select_scan import DialogSelectScan
 from .dlg_view_metadata import DialogViewMetadata
-import logging
+from .form_base_widget import FormBaseWidget
+from .useful_widgets import (
+    LineEditReadOnly,
+    PushButtonMinimumWidth,
+    adjust_qlistwidget_height,
+    clear_gui_state,
+    global_gui_parameters,
+    set_tooltip,
+)
 
 logger = logging.getLogger(__name__)
 

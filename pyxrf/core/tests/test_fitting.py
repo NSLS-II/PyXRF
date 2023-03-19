@@ -1,8 +1,8 @@
-import pytest
 import numpy as np
 import numpy.testing as npt
+import pytest
 
-from pyxrf.core.fitting import rfactor_compute, _fitting_nnls, _fitting_admm, fit_spectrum
+from pyxrf.core.fitting import _fitting_admm, _fitting_nnls, fit_spectrum, rfactor_compute
 
 # ------------------------------------------------------------------------------
 #  useful functions for generating of datasets for testing of fitting algorithms

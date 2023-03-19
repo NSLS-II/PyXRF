@@ -1,27 +1,26 @@
+import logging
 import os
 
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (
-    QHBoxLayout,
-    QVBoxLayout,
     QCheckBox,
-    QLabel,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QHBoxLayout,
+    QLabel,
     QTextEdit,
+    QVBoxLayout,
 )
-from qtpy.QtGui import QDoubleValidator
-from qtpy.QtCore import Qt
 
 from .useful_widgets import (
+    DoubleValidatorStrict,
+    LineEditExtended,
     LineEditReadOnly,
     PushButtonMinimumWidth,
     set_tooltip,
-    LineEditExtended,
-    DoubleValidatorStrict,
 )
-
-import logging
 
 logger = logging.getLogger(__name__)
 

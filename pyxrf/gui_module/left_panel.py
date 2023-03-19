@@ -1,9 +1,9 @@
-from qtpy.QtWidgets import QTabWidget, QScrollArea
 from qtpy.QtCore import Slot
+from qtpy.QtWidgets import QScrollArea, QTabWidget
 
+from .tab_wd_fit_maps import FitMapsWidget
 from .tab_wd_load_data import LoadDataWidget
 from .tab_wd_model import ModelWidget
-from .tab_wd_fit_maps import FitMapsWidget
 
 
 class LeftPanel(QTabWidget):

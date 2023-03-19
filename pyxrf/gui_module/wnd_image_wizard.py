@@ -1,21 +1,21 @@
+import logging
 import re
 from copy import deepcopy
+
+from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtWidgets import (
-    QVBoxLayout,
-    QHBoxLayout,
     QCheckBox,
-    QPushButton,
+    QHBoxLayout,
     QHeaderView,
+    QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
-    QSizePolicy,
+    QVBoxLayout,
 )
-from qtpy.QtGui import QBrush, QColor, QPalette
-from qtpy.QtCore import Qt, Signal, Slot
 
 from .useful_widgets import RangeManager, SecondaryWindow, set_tooltip
-
-import logging
 
 logger = logging.getLogger(__name__)
 

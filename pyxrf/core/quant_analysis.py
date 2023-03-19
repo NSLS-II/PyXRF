@@ -1,19 +1,21 @@
+import copy
+import json
+import logging
+import math
 import os
-import yaml
+import time as ttime
+
 import jsonschema
 import numpy as np
-import math
-import json
-import copy
-import time as ttime
+import yaml
+
+from .utils import convert_time_to_nexus_string, normalize_data_by_scaler
 from .xrf_utils import (
-    split_compound_mass,
-    generate_eline_list,
-    compute_atomic_scaling_factor,
     check_if_eline_supported,
+    compute_atomic_scaling_factor,
+    generate_eline_list,
+    split_compound_mass,
 )
-from .utils import normalize_data_by_scaler, convert_time_to_nexus_string
-import logging
 
 logger = logging.getLogger(__name__)
 

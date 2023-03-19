@@ -1,28 +1,28 @@
 from __future__ import absolute_import, division, print_function
 
-import numpy as np
-import json
-from collections import OrderedDict
 import copy
+import json
+import logging
 import math
+from collections import OrderedDict
 
-from atom.api import Atom, Str, observe, Typed, Int, Dict, List, Float, Bool
-
-from skbeam.fluorescence import XrfElement as Element
+import numpy as np
+from atom.api import Atom, Bool, Dict, Float, Int, List, Str, Typed, observe
 from skbeam.core.fitting.xrf_model import (
+    K_LINE,
+    L_LINE,
+    M_LINE,
     ParamController,
     compute_escape_peak,
-    trim,
     construct_linear_model,
     linear_spectrum_fitting,
+    trim,
 )
-from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
+from skbeam.fluorescence import XrfElement as Element
+
 from ..core.map_processing import snip_method_numba
-from ..core.xrf_utils import check_if_eline_supported, get_eline_parameters, get_element_atomic_number
-
-from ..core.utils import gaussian_sigma_to_fwhm, gaussian_fwhm_to_sigma
-
-import logging
+from ..core.utils import gaussian_fwhm_to_sigma, gaussian_sigma_to_fwhm
+from ..core.xrf_utils import check_if_eline_supported, get_element_atomic_number, get_eline_parameters
 
 logger = logging.getLogger(__name__)
 

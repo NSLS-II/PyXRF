@@ -1,17 +1,17 @@
 import textwrap
 
+from qtpy.QtCore import Qt
+from qtpy.QtGui import QBrush, QColor
 from qtpy.QtWidgets import (
-    QVBoxLayout,
-    QLabel,
     QDialog,
     QDialogButtonBox,
-    QTableWidget,
-    QTableWidgetSelectionRange,
-    QTableWidgetItem,
     QHeaderView,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QTableWidgetSelectionRange,
+    QVBoxLayout,
 )
-from qtpy.QtGui import QBrush, QColor
-from qtpy.QtCore import Qt
 
 from .useful_widgets import set_tooltip
 

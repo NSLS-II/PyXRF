@@ -1,27 +1,25 @@
 # basic command line functions to use. Some of those functions can be implemented to
 # scikit-beam later.
-import os
-import time
-import json
-import glob
-import multiprocessing
-import numpy as np
-import h5py
 import copy
-from collections.abc import Iterable
+import glob
+import json
+import logging
+import multiprocessing
+import os
 import re
-import traceback
 import sys
+import time
+import traceback
+from collections.abc import Iterable
 
-from ..core.quant_analysis import ParamQuantitativeAnalysis
-
-from skbeam.core.fitting.xrf_model import linear_spectrum_fitting, define_range
-from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
-from .fit_spectrum import single_pixel_fitting_controller, save_fitdata_to_hdf
+import h5py
+import numpy as np
+from skbeam.core.fitting.xrf_model import define_range, linear_spectrum_fitting
 
 from ..core.map_processing import dask_client_create
-
-import logging
+from ..core.quant_analysis import ParamQuantitativeAnalysis
+from .fileio import output_data, read_hdf_APS, read_MAPS, sep_v
+from .fit_spectrum import save_fitdata_to_hdf, single_pixel_fitting_controller
 
 logger = logging.getLogger(__name__)
 

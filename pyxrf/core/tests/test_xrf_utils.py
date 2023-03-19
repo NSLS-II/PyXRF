@@ -1,20 +1,22 @@
-import pytest
 import re
+
 import numpy as np
 import numpy.testing as npt
+import pytest
+
 from pyxrf.core.xrf_utils import (
-    get_element_atomic_number,
-    validate_element_str,
-    parse_compound_formula,
-    split_compound_mass,
-    get_supported_eline_list,
-    check_if_eline_supported,
     check_if_eline_is_activated,
-    generate_eline_list,
+    check_if_eline_supported,
+    compute_atomic_scaling_factor,
+    compute_atomic_weight,
     compute_cs,
     compute_cs_ratio,
-    compute_atomic_weight,
-    compute_atomic_scaling_factor,
+    generate_eline_list,
+    get_element_atomic_number,
+    get_supported_eline_list,
+    parse_compound_formula,
+    split_compound_mass,
+    validate_element_str,
 )
 
 

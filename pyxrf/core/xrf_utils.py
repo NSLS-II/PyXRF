@@ -1,7 +1,7 @@
 import re
-import xraylib
 from distutils.version import LooseVersion
 
+import xraylib
 from skbeam.core.constants import XrfElement as Element
 from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 

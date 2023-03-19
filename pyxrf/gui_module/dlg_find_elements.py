@@ -1,9 +1,9 @@
 import copy
 
-from qtpy.QtWidgets import QPushButton, QVBoxLayout, QGroupBox, QLabel, QDialog, QDialogButtonBox, QGridLayout
 from qtpy.QtGui import QDoubleValidator
+from qtpy.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QGroupBox, QLabel, QPushButton, QVBoxLayout
 
-from .useful_widgets import set_tooltip, LineEditExtended
+from .useful_widgets import LineEditExtended, set_tooltip
 
 
 class DialogFindElements(QDialog):

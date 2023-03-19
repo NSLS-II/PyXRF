@@ -7,9 +7,6 @@ The easiest way to install PyXRF is to load it into a Conda environment from
 ``conda-forge`` Anaconda channel. Installation instructions are
 identical for all supported OS.
 
-PyXRF is currently not working properly with ``PyQt5`` v5.15, which is the latest available
-version. The instructions show how to install earlier version of ``PyQt5`` from PyPI.
-
 .. note::
 
   **Installation on Windows**: PyXRF can be installed from *conda-forge* only in the environments
@@ -36,15 +33,13 @@ version. The instructions show how to install earlier version of ``PyQt5`` from 
 
     $ conda install mamba -n base -c conda-forge
 
-  Then use `mamba` instead of `conda` in all commands. Mamba may not respect pinned versions of
-  packages. Since PyXRF currently does not work with `pyqt` v5.15, explicitly specify the version
-  `"pyqt<5.15"` during installation, for example
+  Then use `mamba` instead of `conda` in all the following commands, for example
 
   .. code:: bash
 
     $ mamba create -n pyxrf-env python=3.9 pip -c conda-forge
     $ mamba activate pyxrf-env
-    $ mamba install pyxrf "pyqt<5.15" -c conda-forge
+    $ mamba install pyxrf -c conda-forge
 
   You may still use `conda` where it works well, e.g. to activate an existing environment.
 
@@ -119,14 +114,15 @@ version. The instructions show how to install earlier version of ``PyQt5`` from 
 
    .. code:: bash
 
-       $ pip install pyxrf 'PyQt5<5.15'
+       $ pip install pyxrf PyQt5
+       $ pip install pyxrf 'PyQt5<5.15'  # Older version of PyQT
 
    or from source (editable installation):
 
    .. code:: bash
 
        $ cd <root-directory-of-the-repository>
-       $ pip install 'PyQt5<5.15'
+       $ pip install PyQt5
        $ pip install -e .
 
 Starting PyXRF

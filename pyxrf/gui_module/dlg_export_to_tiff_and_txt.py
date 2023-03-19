@@ -1,24 +1,23 @@
 import copy
+import logging
 import os
 
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
-    QHBoxLayout,
-    QVBoxLayout,
-    QGroupBox,
     QCheckBox,
-    QLabel,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
     QTextEdit,
+    QVBoxLayout,
 )
-from qtpy.QtCore import Qt
 
 from .useful_widgets import LineEditReadOnly, PushButtonMinimumWidth, set_tooltip
-
-import logging
 
 logger = logging.getLogger(__name__)
 

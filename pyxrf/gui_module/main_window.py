@@ -1,32 +1,31 @@
+import logging
 import webbrowser
 from datetime import datetime
 
+from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtGui import QCursor, QGuiApplication
 from qtpy.QtWidgets import (
-    QMainWindow,
-    QMessageBox,
-    QLabel,
     QAction,
     QDialog,
-    QVBoxLayout,
     QDialogButtonBox,
     QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
     QProgressBar,
+    QVBoxLayout,
 )
-from qtpy.QtCore import Qt, Slot, Signal
-from qtpy.QtGui import QGuiApplication, QCursor
-
-from .central_widget import TwoPanelWidget
-from .useful_widgets import global_gui_variables
-from .wnd_manage_emission_lines import WndManageEmissionLines
-from .wnd_compute_roi_maps import WndComputeRoiMaps
-from .wnd_load_quant_calibration import WndLoadQuantitativeCalibration
-from .wnd_image_wizard import WndImageWizard
-from .wnd_general_settings_for_fitting import WndGeneralFittingSettings
-from .wnd_detailed_fitting_params import WndDetailedFittingParamsLines, WndDetailedFittingParamsShared
 
 import pyxrf
 
-import logging
+from .central_widget import TwoPanelWidget
+from .useful_widgets import global_gui_variables
+from .wnd_compute_roi_maps import WndComputeRoiMaps
+from .wnd_detailed_fitting_params import WndDetailedFittingParamsLines, WndDetailedFittingParamsShared
+from .wnd_general_settings_for_fitting import WndGeneralFittingSettings
+from .wnd_image_wizard import WndImageWizard
+from .wnd_load_quant_calibration import WndLoadQuantitativeCalibration
+from .wnd_manage_emission_lines import WndManageEmissionLines
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +55,8 @@ class MainWindow(QMainWindow):
         self.gui_vars = global_gui_variables
         self.gui_vars["ref_main_window"] = self
 
+        self.gpc.initialize()
+
         self.wnd_manage_emission_lines = WndManageEmissionLines(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_compute_roi_maps = WndComputeRoiMaps(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_image_wizard = WndImageWizard(gpc=self.gpc, gui_vars=self.gui_vars)
@@ -65,6 +66,7 @@ class MainWindow(QMainWindow):
         self.wnd_general_fitting_settings = WndGeneralFittingSettings(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_fitting_parameters_shared = WndDetailedFittingParamsShared(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_fitting_parameters_lines = WndDetailedFittingParamsLines(gpc=self.gpc, gui_vars=self.gui_vars)
+
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 

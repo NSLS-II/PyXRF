@@ -1,6 +1,7 @@
-import yaml
-import re
 import os
+import re
+
+import yaml
 
 
 def _parse_docstring_parameters(doc_string, search_param_section=True):

@@ -1,14 +1,13 @@
+import logging
 import os
 
-from qtpy.QtWidgets import QPushButton, QVBoxLayout, QGroupBox, QLabel, QGridLayout, QMessageBox
-from qtpy.QtCore import Slot, Signal, QThreadPool, QRunnable
+from qtpy.QtCore import QRunnable, QThreadPool, Signal, Slot
+from qtpy.QtWidgets import QGridLayout, QGroupBox, QLabel, QMessageBox, QPushButton, QVBoxLayout
 
-from .useful_widgets import global_gui_parameters, set_tooltip, LineEditExtended, IntValidatorStrict
-from .form_base_widget import FormBaseWidget
 from .dlg_export_to_tiff_and_txt import DialogExportToTiffAndTxt
 from .dlg_save_calibration import DialogSaveCalibration
-
-import logging
+from .form_base_widget import FormBaseWidget
+from .useful_widgets import IntValidatorStrict, LineEditExtended, global_gui_parameters, set_tooltip
 
 logger = logging.getLogger(__name__)
 

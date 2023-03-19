@@ -1,4 +1,4 @@
-from qtpy.QtWidgets import QWidget, QSizePolicy
+from qtpy.QtWidgets import QSizePolicy, QWidget
 
 
 class FormBaseWidget(QWidget):

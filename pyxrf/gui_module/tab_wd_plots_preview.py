@@ -1,10 +1,10 @@
-from qtpy.QtWidgets import QTabWidget
+import logging
+
 from qtpy.QtCore import Slot
+from qtpy.QtWidgets import QTabWidget
 
 from .wd_preview_plot_count import PreviewPlotCount
 from .wd_preview_plot_spectrum import PreviewPlotSpectrum
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,10 @@ class PreviewPlots(QTabWidget):
         state = self.gui_vars["gui_state"]["state_file_loaded"]
         for i in range(self.count()):
             self.setTabEnabled(i, state)
+
+        state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
+        if not state_file_loaded:
+            self.setCurrentIndex(0)
 
     @Slot(bool)
     def activate_preview_plot_spectrum(self):

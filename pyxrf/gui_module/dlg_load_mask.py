@@ -1,22 +1,21 @@
+import logging
 import os
-import numpy as np
 
+import numpy as np
+from qtpy.QtGui import QIntValidator
 from qtpy.QtWidgets import (
-    QPushButton,
-    QHBoxLayout,
-    QVBoxLayout,
-    QGroupBox,
-    QLabel,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
 )
-from qtpy.QtGui import QIntValidator
 
-from .useful_widgets import LineEditReadOnly, LineEditExtended, set_tooltip
-
-import logging
+from .useful_widgets import LineEditExtended, LineEditReadOnly, set_tooltip
 
 logger = logging.getLogger(__name__)
 

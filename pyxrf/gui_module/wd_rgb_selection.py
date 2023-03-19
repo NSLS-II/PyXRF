@@ -1,12 +1,11 @@
-from qtpy.QtWidgets import QWidget, QHBoxLayout, QRadioButton, QButtonGroup, QTableWidget, QHeaderView, QSizePolicy
-from qtpy.QtGui import QPalette
-from qtpy.QtCore import Qt, Signal
-
 import copy
-
-from .useful_widgets import RangeManager, get_background_css, ComboBoxNamed
-
 import logging
+
+from qtpy.QtCore import Qt, Signal
+from qtpy.QtGui import QPalette
+from qtpy.QtWidgets import QButtonGroup, QHBoxLayout, QHeaderView, QRadioButton, QSizePolicy, QTableWidget, QWidget
+
+from .useful_widgets import ComboBoxNamed, RangeManager, get_background_css
 
 logger = logging.getLogger(__name__)
 

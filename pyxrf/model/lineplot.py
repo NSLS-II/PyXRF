@@ -1,25 +1,24 @@
 from __future__ import absolute_import, division, print_function
+
+import logging
 import math
-import numpy as np
-import matplotlib
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.collections import BrokenBarHCollection
-import matplotlib.ticker as mticker
-from matplotlib.colors import LogNorm
 from enum import Enum
+
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import numpy as np
+from atom.api import Atom, Bool, Dict, Float, Int, List, Str, Typed, observe
+from matplotlib.axes import Axes
+from matplotlib.collections import BrokenBarHCollection
+from matplotlib.colors import LogNorm
+from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import ImageGrid
-
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-
 from skbeam.core.fitting.xrf_model import K_TRANSITIONS, L_TRANSITIONS, M_TRANSITIONS
 from skbeam.fluorescence import XrfElement as Element
 
 from ..core.xrf_utils import get_eline_parameters
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +252,7 @@ class LinePlotModel(Atom):
 
         self._color_config()
         self._fig.tight_layout(pad=0.5)
+
         self.max_v = 1.0
         # when we calculate max value, data smaller than 500, 0.5 Kev, can be ignored.
         # And the last point of data is also huge, and should be cut off.
@@ -360,11 +360,11 @@ class LinePlotModel(Atom):
     #         return
     #     self.plot_style['experiment']['label'] = change['value']
 
-    @observe("parameters")
-    def _update_energy(self, change):
-        if "coherent_sct_energy" not in self.param_model.param_new:
-            return
-        self.incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
+    # @observe("parameters")
+    # def _update_energy(self, change):
+    #     if "coherent_sct_energy" not in self.param_model.param_new:
+    #         return
+    #     self.incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
 
     def set_energy_range_fitting(self, energy_range_name):
         if energy_range_name not in self.energy_range_names:

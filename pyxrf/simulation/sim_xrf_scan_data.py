@@ -1,18 +1,16 @@
-import re
-import numpy as np
+import logging
 import math
 import os
+import re
 
-from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
+import numpy as np
 from skbeam.core.constants.xrf import XrfElement
 from skbeam.core.fitting.lineshapes import gaussian
+from skbeam.core.fitting.xrf_model import K_LINE, L_LINE, M_LINE
 
-from ..model.load_data_from_db import save_data_to_hdf5
 from ..core.quant_analysis import ParamQuantEstimation
-
 from ..core.xrf_utils import generate_eline_list
-
-import logging
+from ..model.load_data_from_db import save_data_to_hdf5
 
 logger = logging.getLogger(__name__)
 

@@ -1,32 +1,31 @@
+import logging
 import textwrap
 
+from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtGui import QBrush, QColor, QDoubleValidator
 from qtpy.QtWidgets import (
-    QPushButton,
-    QHBoxLayout,
-    QVBoxLayout,
-    QGroupBox,
+    QButtonGroup,
     QCheckBox,
-    QLabel,
     QComboBox,
     QFileDialog,
+    QFrame,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
     QRadioButton,
-    QButtonGroup,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QWidget,
-    QScrollArea,
     QTabWidget,
-    QFrame,
-    QMessageBox,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtGui import QBrush, QColor, QDoubleValidator
-from qtpy.QtCore import Qt, Slot, Signal
 
-from .useful_widgets import get_background_css, SecondaryWindow, set_tooltip, LineEditExtended
 from .dlg_view_calib_standard import DialogViewCalibStandard
-
-import logging
+from .useful_widgets import LineEditExtended, SecondaryWindow, get_background_css, set_tooltip
 
 logger = logging.getLogger(__name__)
 

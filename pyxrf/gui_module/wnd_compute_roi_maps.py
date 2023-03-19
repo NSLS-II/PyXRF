@@ -1,28 +1,28 @@
+import logging
+
+from qtpy.QtCore import QRunnable, Qt, QThreadPool, Signal, Slot
+from qtpy.QtGui import QBrush, QColor
 from qtpy.QtWidgets import (
-    QPushButton,
-    QHBoxLayout,
-    QVBoxLayout,
     QCheckBox,
+    QHBoxLayout,
+    QHeaderView,
     QLabel,
+    QMessageBox,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
+    QVBoxLayout,
     QWidget,
-    QMessageBox,
 )
-from qtpy.QtGui import QBrush, QColor
-from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable
 
 from .useful_widgets import (
-    SecondaryWindow,
-    set_tooltip,
+    CheckBoxNamed,
     LineEditExtended,
     PushButtonNamed,
-    CheckBoxNamed,
     RangeManager,
+    SecondaryWindow,
+    set_tooltip,
 )
-
-import logging
 
 logger = logging.getLogger(__name__)
 

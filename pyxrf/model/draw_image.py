@@ -1,25 +1,23 @@
 from __future__ import absolute_import
 
-import numpy as np
+import logging
+import math
 
 # from scipy.interpolate import interp1d, interp2d
 import re
 
-import math
 import matplotlib
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 import matplotlib.ticker as mticker
+import numpy as np
+from atom.api import Atom, Bool, Dict, Float, Int, List, Str, Typed, observe
+from matplotlib.colors import LogNorm
+from matplotlib.figure import Figure
 from mpl_toolkits.axes_grid1 import ImageGrid
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Bool, Float
-
-from ..core.utils import normalize_data_by_scaler, grid_interpolate
 
 from ..core.quant_analysis import ParamQuantitativeAnalysis
+from ..core.utils import grid_interpolate, normalize_data_by_scaler
 from ..core.xrf_utils import check_if_eline_supported
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +122,6 @@ class DrawImageAdvanced(Atom):
     def __init__(self, *, io_model):
         self.io_model = io_model
 
-        self.fig = plt.figure(figsize=(3, 2))
-        matplotlib.rcParams["axes.formatter.useoffset"] = True
-
         # Do not apply scaler norm on following data
         self.name_not_scalable = [
             "r2_adjust",
@@ -144,6 +139,9 @@ class DrawImageAdvanced(Atom):
         self.param_quant_analysis = ParamQuantitativeAnalysis()
         self.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample=0.0)
         self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
+
+        self.fig = plt.figure(figsize=(3, 2))
+        matplotlib.rcParams["axes.formatter.useoffset"] = True
 
     def img_dict_updated(self, change):
         """

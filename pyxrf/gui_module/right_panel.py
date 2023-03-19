@@ -1,10 +1,10 @@
-from qtpy.QtWidgets import QTabWidget
 from qtpy.QtCore import Slot
+from qtpy.QtWidgets import QTabWidget
 
-from .tab_wd_plots_preview import PreviewPlots
 from .tab_wd_plots_fitting_model import PlotFittingModel
-from .tab_wd_plots_xrf_maps import PlotXrfMaps
+from .tab_wd_plots_preview import PreviewPlots
 from .tab_wd_plots_rgb_maps import PlotRgbMaps
+from .tab_wd_plots_xrf_maps import PlotXrfMaps
 from .useful_widgets import global_gui_variables
 
 
@@ -41,12 +41,13 @@ class RightPanel(QTabWidget):
             state_model_exist = self.gui_vars["gui_state"]["state_model_exists"]
             state_xrf_map_exists = self.gui_vars["gui_state"]["state_xrf_map_exists"]
 
-            if not state_file_loaded:
-                self.setCurrentIndex(0)
             self.setTabEnabled(0, state_file_loaded)
             self.setTabEnabled(1, state_file_loaded & state_model_exist)
             self.setTabEnabled(2, state_xrf_map_exists)
             self.setTabEnabled(3, state_xrf_map_exists)
+
+            if not state_file_loaded:
+                self.setCurrentIndex(0)
 
         # Propagate the call to 'update_widget_state' downstream
         for i in range(self.count()):

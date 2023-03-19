@@ -5,13 +5,13 @@ try:
 except ModuleNotFoundError:
     from databroker import Broker
 
+import logging
+
 from databroker._core import register_builtin_handlers
 
 #  srx detector, to be moved to filestore
 # from databroker.assets.handlers import Xspress3HDF5Handler
 from databroker.assets.handlers import HandlerBase
-
-import logging
 
 logger = logging.getLogger(__name__)
 

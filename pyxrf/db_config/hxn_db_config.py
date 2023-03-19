@@ -3,8 +3,8 @@ try:
 except ModuleNotFoundError:
     from databroker import Broker
 
-from hxntools.handlers.xspress3 import Xspress3HDF5Handler
 from hxntools.handlers.timepix import TimepixHDF5Handler
+from hxntools.handlers.xspress3 import Xspress3HDF5Handler
 
 db = Broker.named("hxn")
 # db_analysis = Broker.named('hxn_analysis')
