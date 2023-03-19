@@ -31,6 +31,10 @@ class PreviewPlots(QTabWidget):
         for i in range(self.count()):
             self.setTabEnabled(i, state)
 
+        state_file_loaded = self.gui_vars["gui_state"]["state_file_loaded"]
+        if not state_file_loaded:
+            self.setCurrentIndex(0)
+
     @Slot(bool)
     def activate_preview_plot_spectrum(self):
         self.setCurrentWidget(self.preview_plot_spectrum)
