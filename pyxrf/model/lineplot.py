@@ -360,11 +360,11 @@ class LinePlotModel(Atom):
     #         return
     #     self.plot_style['experiment']['label'] = change['value']
 
-    @observe("parameters")
-    def _update_energy(self, change):
-        if "coherent_sct_energy" not in self.param_model.param_new:
-            return
-        self.incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
+    # @observe("parameters")
+    # def _update_energy(self, change):
+    #     if "coherent_sct_energy" not in self.param_model.param_new:
+    #         return
+    #     self.incident_energy = self.param_model.param_new["coherent_sct_energy"]["value"]
 
     def set_energy_range_fitting(self, energy_range_name):
         if energy_range_name not in self.energy_range_names:
