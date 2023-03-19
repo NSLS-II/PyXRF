@@ -74,7 +74,7 @@ jobs:
 
     - name: Install Conda packages
       run: |
-        set -vxeuo pipefail
+        set -vxeo pipefail
 
         conda install -y \
           python=${{ matrix.python-version }} \
@@ -91,7 +91,7 @@ jobs:
     - name: Install Conda packages (Windows and OSX)
       if: runner.os != 'Linux'
       run: |
-        set -vxeuo pipefail
+        set -vxeo pipefail
 
         # There are issues in building wheels for pystackreg>0.2.2 on OSX, so install pystackreg from CF
         conda install -y pystackreg -c conda-forge
