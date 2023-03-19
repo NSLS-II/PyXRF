@@ -1,15 +1,12 @@
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QRadioButton, QButtonGroup, QComboBox
-from qtpy.QtCore import Slot
-
-from .useful_widgets import set_tooltip, global_gui_variables
-from ..model.lineplot import PlotTypes, EnergyRangePresets
-
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar,
-)
-
 import logging
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from qtpy.QtCore import Slot
+from qtpy.QtWidgets import QButtonGroup, QComboBox, QHBoxLayout, QRadioButton, QVBoxLayout, QWidget
+
+from ..model.lineplot import EnergyRangePresets, PlotTypes
+from .useful_widgets import global_gui_variables, set_tooltip
 
 logger = logging.getLogger(__name__)
 

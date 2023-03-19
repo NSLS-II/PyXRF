@@ -1,8 +1,8 @@
-import numpy as np
-import scipy
+import logging
 import time as ttime
 
-import logging
+import numpy as np
+import scipy
 
 logger = logging.getLogger(__name__)
 

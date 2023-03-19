@@ -1,20 +1,19 @@
 from __future__ import absolute_import
 
-import os
 import copy
+import logging
 import math
-from ..model.fileio import FileIOModel
-from ..model.lineplot import LinePlotModel
-from ..model.parameters import ParamModel, save_as, fit_strategy_list, bound_options
-from ..model.draw_image import DrawImageAdvanced
-from ..model.draw_image_rgb import DrawImageRGB
-from ..model.fit_spectrum import Fit1D, get_cs
-from ..model.roi_model import ROIModel
-from ..model.param_data import param_data
+import os
 
 from ..core.xrf_utils import get_eline_energy
-
-import logging
+from ..model.draw_image import DrawImageAdvanced
+from ..model.draw_image_rgb import DrawImageRGB
+from ..model.fileio import FileIOModel
+from ..model.fit_spectrum import Fit1D, get_cs
+from ..model.lineplot import LinePlotModel
+from ..model.param_data import param_data
+from ..model.parameters import ParamModel, bound_options, fit_strategy_list, save_as
+from ..model.roi_model import ROIModel
 
 logger = logging.getLogger(__name__)
 

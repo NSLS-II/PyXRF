@@ -1,23 +1,20 @@
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from qtpy.QtCore import Qt, Signal, Slot
 from qtpy.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QRadioButton,
     QButtonGroup,
-    QComboBox,
     QCheckBox,
-    QPushButton,
+    QComboBox,
     QDialog,
+    QHBoxLayout,
+    QPushButton,
+    QRadioButton,
+    QVBoxLayout,
+    QWidget,
 )
-from qtpy.QtCore import Qt, Slot, Signal
 
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar,
-)
-
-from .useful_widgets import ElementSelection, set_tooltip  # , global_gui_variables
 from .dlg_plot_escape_peak import DialogPlotEscapePeak
+from .useful_widgets import ElementSelection, set_tooltip  # , global_gui_variables
 
 
 class PlotFittingModel(QWidget):

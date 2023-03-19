@@ -1,21 +1,20 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import h5py
-import numpy as np
-import os
-import json
-import multiprocessing
-import pandas as pd
-import platform
-import math
-import time as ttime
 import copy
+import json
+import logging
+import math
+import multiprocessing
+import os
+import platform
 import re
+import time as ttime
+import warnings
 from distutils.version import LooseVersion
 
-import logging
-import warnings
-
+import h5py
+import numpy as np
+import pandas as pd
 from event_model import Filler
 
 try:
@@ -23,10 +22,10 @@ try:
 except ImportError:
     pass
 
+import pyxrf
+
 from ..core.utils import convert_time_to_nexus_string
 from .scan_metadata import ScanMetadataXRF
-
-import pyxrf
 
 pyxrf_version = pyxrf.__version__
 

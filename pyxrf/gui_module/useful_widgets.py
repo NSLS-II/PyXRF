@@ -1,21 +1,21 @@
+import logging
+
+from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtGui import QColor, QDoubleValidator, QFontMetrics, QIntValidator, QPalette
 from qtpy.QtWidgets import (
-    QLineEdit,
-    QWidget,
-    QHBoxLayout,
+    QCheckBox,
     QComboBox,
-    QTextEdit,
-    QSizePolicy,
-    QLabel,
-    QPushButton,
     QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSizePolicy,
     QSlider,
     QSpinBox,
-    QCheckBox,
+    QTextEdit,
+    QWidget,
 )
-from qtpy.QtCore import Qt, Signal, Slot
-from qtpy.QtGui import QPalette, QColor, QFontMetrics, QIntValidator, QDoubleValidator
-
-import logging
 
 logger = logging.getLogger(__name__)
 

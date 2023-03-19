@@ -1,4 +1,4 @@
-from qtpy.QtWidgets import QLabel, QVBoxLayout, QComboBox, QGridLayout, QDialog, QDialogButtonBox, QGroupBox
+from qtpy.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QGridLayout, QGroupBox, QLabel, QVBoxLayout
 
 from .useful_widgets import LineEditReadOnly, set_tooltip
 

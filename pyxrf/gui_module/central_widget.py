@@ -1,5 +1,6 @@
-from qtpy.QtWidgets import QFrame, QSplitter, QHBoxLayout
 from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QFrame, QHBoxLayout, QSplitter
+
 from .left_panel import LeftPanel
 from .right_panel import RightPanel
 

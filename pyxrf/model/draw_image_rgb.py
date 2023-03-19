@@ -1,21 +1,20 @@
 from __future__ import absolute_import, division, print_function
 
-import numpy as np
+import logging
 import math
 from functools import partial
-from matplotlib.figure import Figure, Axes
-import matplotlib.pyplot as plt
+
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import numpy as np
+from atom.api import Atom, Bool, Dict, Int, List, Str, Typed
+from matplotlib.figure import Axes, Figure
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes
-from atom.api import Atom, Str, Typed, Int, List, Dict, Bool
 
-from ..core.utils import normalize_data_by_scaler, grid_interpolate
+from ..core.utils import grid_interpolate, normalize_data_by_scaler
 from ..core.xrf_utils import check_if_eline_supported
-
 from .draw_image import DrawImageAdvanced
-
-import logging
 
 logger = logging.getLogger(__name__)
 

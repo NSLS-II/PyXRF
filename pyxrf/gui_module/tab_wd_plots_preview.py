@@ -1,10 +1,10 @@
-from qtpy.QtWidgets import QTabWidget
+import logging
+
 from qtpy.QtCore import Slot
+from qtpy.QtWidgets import QTabWidget
 
 from .wd_preview_plot_count import PreviewPlotCount
 from .wd_preview_plot_spectrum import PreviewPlotSpectrum
-
-import logging
 
 logger = logging.getLogger(__name__)
 

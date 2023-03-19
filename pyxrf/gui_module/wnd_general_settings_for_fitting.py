@@ -1,23 +1,24 @@
+import logging
+
+from qtpy.QtCore import QRunnable, Qt, QThreadPool, Signal, Slot
 from qtpy.QtWidgets import (
-    QHBoxLayout,
-    QVBoxLayout,
-    QGroupBox,
-    QPushButton,
     QCheckBox,
-    QLabel,
     QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
     QMessageBox,
-)
-from qtpy.QtCore import Qt, Slot, Signal, QThreadPool, QRunnable
-from .useful_widgets import (
-    set_tooltip,
-    SecondaryWindow,
-    LineEditExtended,
-    IntValidatorStrict,
-    DoubleValidatorStrict,
+    QPushButton,
+    QVBoxLayout,
 )
 
-import logging
+from .useful_widgets import (
+    DoubleValidatorStrict,
+    IntValidatorStrict,
+    LineEditExtended,
+    SecondaryWindow,
+    set_tooltip,
+)
 
 logger = logging.getLogger(__name__)
 

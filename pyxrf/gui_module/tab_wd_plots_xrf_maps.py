@@ -1,14 +1,11 @@
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QCheckBox, QPushButton
-from qtpy.QtCore import Signal, Slot
-
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar,
-)
-
-from .useful_widgets import set_tooltip, global_gui_variables
-
 import logging
+
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from qtpy.QtCore import Signal, Slot
+from qtpy.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+
+from .useful_widgets import global_gui_variables, set_tooltip
 
 logger = logging.getLogger(__name__)
 

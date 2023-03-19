@@ -1,5 +1,6 @@
-from pyxrf.gui_module.main_window import MainWindow
 from PyQt5.QtWidgets import QMessageBox
+
+from pyxrf.gui_module.main_window import MainWindow
 from pyxrf.gui_support.gpc_class import GlobalProcessingClasses
 
 

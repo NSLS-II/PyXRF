@@ -1,10 +1,10 @@
-from qtpy.QtWidgets import QTabWidget
 from qtpy.QtCore import Slot
+from qtpy.QtWidgets import QTabWidget
 
-from .tab_wd_plots_preview import PreviewPlots
 from .tab_wd_plots_fitting_model import PlotFittingModel
-from .tab_wd_plots_xrf_maps import PlotXrfMaps
+from .tab_wd_plots_preview import PreviewPlots
 from .tab_wd_plots_rgb_maps import PlotRgbMaps
+from .tab_wd_plots_xrf_maps import PlotXrfMaps
 from .useful_widgets import global_gui_variables
 
 

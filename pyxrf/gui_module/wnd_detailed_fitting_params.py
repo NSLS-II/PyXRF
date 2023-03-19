@@ -1,21 +1,21 @@
+import logging
+
+from qtpy.QtCore import QRunnable, Qt, QThreadPool, Signal, Slot
+from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtWidgets import (
-    QHBoxLayout,
-    QVBoxLayout,
-    QLabel,
+    QCheckBox,
     QComboBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
     QMessageBox,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
-    QPushButton,
-    QCheckBox,
+    QVBoxLayout,
 )
-from qtpy.QtGui import QBrush, QColor, QPalette
-from qtpy.QtCore import Qt, Signal, Slot, QThreadPool, QRunnable
 
-from .useful_widgets import get_background_css, set_tooltip, ComboBoxNamedNoWheel, SecondaryWindow
-
-import logging
+from .useful_widgets import ComboBoxNamedNoWheel, SecondaryWindow, get_background_css, set_tooltip
 
 logger = logging.getLogger(__name__)
 

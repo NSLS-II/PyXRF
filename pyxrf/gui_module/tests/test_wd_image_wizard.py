@@ -1,4 +1,5 @@
 import copy
+
 import pytest
 
 from pyxrf.gui_module.useful_widgets import global_gui_variables

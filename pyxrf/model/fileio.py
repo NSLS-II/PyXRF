@@ -1,47 +1,48 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import sys
-import h5py
-import numpy as np
-import os
-import re
-from collections import OrderedDict
-import pandas as pd
-import json
-import skimage.io as sio
-from PIL import Image
+import ast
 import copy
 import glob
-import ast
+import json
+import logging
+import os
+import re
+import sys
+import warnings
+from collections import OrderedDict
+from collections.abc import Iterable
+from distutils.version import LooseVersion
+
+import h5py
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
-from collections.abc import Iterable
-from atom.api import Atom, Str, observe, Typed, Dict, List, Int, Float, Enum, Bool
-from .load_data_from_db import (
-    db,
-    fetch_data_from_db,
-    flip_data,
-    helper_encode_list,
-    helper_decode_list,
-    write_db_to_hdf,
-    fetch_run_info,
-)
-from ..core.utils import normalize_data_by_scaler, grid_interpolate
+import numpy as np
+import pandas as pd
+import requests
+import skimage.io as sio
+from atom.api import Atom, Bool, Dict, Enum, Float, Int, List, Str, Typed, observe
+from PIL import Image
+
+import pyxrf
+
 from ..core.map_processing import (
     RawHDF5Dataset,
-    compute_total_spectrum_and_count,
     TerminalProgressBar,
+    compute_total_spectrum_and_count,
     dask_client_create,
     prepare_xrf_map,
 )
+from ..core.utils import grid_interpolate, normalize_data_by_scaler
+from .load_data_from_db import (
+    db,
+    fetch_data_from_db,
+    fetch_run_info,
+    flip_data,
+    helper_decode_list,
+    helper_encode_list,
+    write_db_to_hdf,
+)
 from .scan_metadata import ScanMetadataXRF
-import requests
-from distutils.version import LooseVersion
-
-import logging
-import warnings
-
-import pyxrf
 
 pyxrf_version = pyxrf.__version__
 

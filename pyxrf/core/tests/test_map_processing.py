@@ -1,36 +1,34 @@
-import pytest
-import numpy as np
-import dask.array as da
-import numpy.testing as npt
-import h5py
+import logging
 import os
 import uuid
-from pyxrf.core.fitting import fit_spectrum
 
+import dask.array as da
+import h5py
+import numpy as np
+import numpy.testing as npt
+import pytest
 from skbeam.core.fitting.background import snip_method
 
+from pyxrf.core.fitting import fit_spectrum
 from pyxrf.core.map_processing import (
-    dask_client_create,
-    TerminalProgressBar,
-    wait_and_display_progress,
-    _compute_optimal_chunk_size,
-    _chunk_numpy_array,
-    _array_numpy_to_dask,
     RawHDF5Dataset,
-    prepare_xrf_map,
+    TerminalProgressBar,
+    _array_numpy_to_dask,
+    _chunk_numpy_array,
+    _compute_optimal_chunk_size,
+    _compute_roi,
+    _fit_xrf_block,
     _prepare_xrf_mask,
+    compute_selected_rois,
     compute_total_spectrum,
     compute_total_spectrum_and_count,
-    _fit_xrf_block,
+    dask_client_create,
     fit_xrf_map,
-    _compute_roi,
-    compute_selected_rois,
+    prepare_xrf_map,
     snip_method_numba,
+    wait_and_display_progress,
 )
-
 from pyxrf.core.tests.test_fitting import DataForFittingTest
-
-import logging
 
 logger = logging.getLogger(__name__)
 

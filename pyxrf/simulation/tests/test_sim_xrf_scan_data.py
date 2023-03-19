@@ -1,16 +1,18 @@
+import os
+
+import numpy as np
+import numpy.testing as npt
+import pytest
+
 from pyxrf.simulation.sim_xrf_scan_data import (
     _get_elemental_line_parameters,
-    gen_xrf_spectrum,
-    gen_xrf_map_const,
     create_hdf5_xrf_map_const,
     create_xrf_map_data,
     gen_hdf5_qa_dataset,
     gen_hdf5_qa_dataset_preset_1,
+    gen_xrf_map_const,
+    gen_xrf_spectrum,
 )
-import pytest
-import numpy as np
-import numpy.testing as npt
-import os
 
 
 # fmt: off

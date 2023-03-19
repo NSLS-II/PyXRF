@@ -1,14 +1,14 @@
-import sys
-import platform
 import argparse
-from PyQt5.QtWidgets import QApplication, QStyleFactory
-from PyQt5.QtGui import QFontDatabase, QPalette, QColor
-from PyQt5.QtCore import Qt
-
-from .gui_support.gpc_class import GlobalProcessingClasses
-from .gui_module.main_window import MainWindow
-
 import logging
+import platform
+import sys
+
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor, QFontDatabase, QPalette
+from PyQt5.QtWidgets import QApplication, QStyleFactory
+
+from .gui_module.main_window import MainWindow
+from .gui_support.gpc_class import GlobalProcessingClasses
 
 logger = logging.getLogger("pyxrf")
 

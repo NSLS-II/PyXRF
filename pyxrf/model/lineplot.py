@@ -1,25 +1,24 @@
 from __future__ import absolute_import, division, print_function
+
+import logging
 import math
-import numpy as np
-import matplotlib
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.collections import BrokenBarHCollection
-import matplotlib.ticker as mticker
-from matplotlib.colors import LogNorm
 from enum import Enum
+
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import numpy as np
+from atom.api import Atom, Bool, Dict, Float, Int, List, Str, Typed, observe
+from matplotlib.axes import Axes
+from matplotlib.collections import BrokenBarHCollection
+from matplotlib.colors import LogNorm
+from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import ImageGrid
-
-from atom.api import Atom, Str, observe, Typed, Int, List, Dict, Float, Bool
-
 from skbeam.core.fitting.xrf_model import K_TRANSITIONS, L_TRANSITIONS, M_TRANSITIONS
 from skbeam.fluorescence import XrfElement as Element
 
 from ..core.xrf_utils import get_eline_parameters
-
-import logging
 
 logger = logging.getLogger(__name__)
 

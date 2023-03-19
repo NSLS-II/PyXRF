@@ -1,19 +1,20 @@
-import numpy as np
+import getpass
+import logging
 import math
 import os
-import h5py
+import platform
+import tempfile
+import time as ttime
+
 import dask
 import dask.array as da
-import tempfile
-import platform
-import getpass
-import time as ttime
-from numba import jit
+import h5py
+import numpy as np
 from dask.distributed import Client, wait
+from numba import jit
 from progress.bar import Bar
-from .fitting import fit_spectrum
 
-import logging
+from .fitting import fit_spectrum
 
 logger = logging.getLogger(__name__)
 

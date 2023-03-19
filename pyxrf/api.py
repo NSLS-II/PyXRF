@@ -2,8 +2,9 @@
 # Use 'pyxrf.api_dev' if you are importing PyXRF API into a custom script.
 
 
-from .api_dev import *  # noqa: F401, F403
 from pyxrf import __version__ as pyxrf_version
+
+from .api_dev import *  # noqa: F401, F403
 
 
 def pyxrf_api():

@@ -1,9 +1,8 @@
+import logging
 import textwrap
 
-from qtpy.QtWidgets import QHBoxLayout, QVBoxLayout, QDialog, QDialogButtonBox, QTextEdit, QLabel
 from qtpy.QtCore import Qt
-
-import logging
+from qtpy.QtWidgets import QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QTextEdit, QVBoxLayout
 
 logger = logging.getLogger(__name__)
 

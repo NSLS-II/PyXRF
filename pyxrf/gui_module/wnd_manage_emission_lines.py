@@ -1,35 +1,33 @@
-import numpy as np
 import copy
+import logging
 
+import numpy as np
+from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtGui import QBrush, QColor, QDoubleValidator
 from qtpy.QtWidgets import (
-    QPushButton,
-    QHBoxLayout,
-    QVBoxLayout,
     QCheckBox,
-    QTableWidget,
-    QWidget,
-    QTableWidgetItem,
+    QHBoxLayout,
     QHeaderView,
     QMessageBox,
-)
-from qtpy.QtGui import QBrush, QColor, QDoubleValidator
-from qtpy.QtCore import Qt, Slot, Signal
-
-from .useful_widgets import (
-    LineEditReadOnly,
-    ElementSelection,
-    SecondaryWindow,
-    set_tooltip,
-    LineEditExtended,
-    CheckBoxNamed,
-    get_background_css,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
 
 from .dlg_edit_user_peak_parameters import DialogEditUserPeakParameters
 from .dlg_new_user_peak import DialogNewUserPeak
 from .dlg_pileup_peak_parameters import DialogPileupPeakParameters
-
-import logging
+from .useful_widgets import (
+    CheckBoxNamed,
+    ElementSelection,
+    LineEditExtended,
+    LineEditReadOnly,
+    SecondaryWindow,
+    get_background_css,
+    set_tooltip,
+)
 
 logger = logging.getLogger(__name__)
 
