@@ -120,8 +120,6 @@ class DrawImageRGB(Atom):
         self.io_model = io_model
         self.img_model_adv = img_model_adv
 
-        self.fig = plt.figure(figsize=(3, 2))
-
         self.rgb_name_list = ["R", "G", "B"]
 
         # Do not apply scaler norm on following data
@@ -140,6 +138,8 @@ class DrawImageRGB(Atom):
 
         self.rgb_keys = ["red", "green", "blue"]
         self._init_rgb_dict()
+
+        self.fig = plt.figure(figsize=(3, 2))
 
     def img_dict_updated(self, change):
         """

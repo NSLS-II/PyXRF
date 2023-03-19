@@ -253,6 +253,7 @@ class LinePlotModel(Atom):
 
         self._color_config()
         self._fig.tight_layout(pad=0.5)
+
         self.max_v = 1.0
         # when we calculate max value, data smaller than 500, 0.5 Kev, can be ignored.
         # And the last point of data is also huge, and should be cut off.

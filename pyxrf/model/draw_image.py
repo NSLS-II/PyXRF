@@ -124,9 +124,6 @@ class DrawImageAdvanced(Atom):
     def __init__(self, *, io_model):
         self.io_model = io_model
 
-        self.fig = plt.figure(figsize=(3, 2))
-        matplotlib.rcParams["axes.formatter.useoffset"] = True
-
         # Do not apply scaler norm on following data
         self.name_not_scalable = [
             "r2_adjust",
@@ -144,6 +141,9 @@ class DrawImageAdvanced(Atom):
         self.param_quant_analysis = ParamQuantitativeAnalysis()
         self.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample=0.0)
         self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
+
+        self.fig = plt.figure(figsize=(3, 2))
+        matplotlib.rcParams["axes.formatter.useoffset"] = True
 
     def img_dict_updated(self, change):
         """

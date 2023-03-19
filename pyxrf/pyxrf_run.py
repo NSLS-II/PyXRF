@@ -58,7 +58,7 @@ def run():
         sys.tracebacklimit = 0
 
     gpc = GlobalProcessingClasses()
-    gpc.initialize()
+    # Initialize 'gpc' in 'MainWindow.__init__'
 
     app = QApplication(sys.argv)
 

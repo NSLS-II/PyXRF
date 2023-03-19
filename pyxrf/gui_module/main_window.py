@@ -56,6 +56,8 @@ class MainWindow(QMainWindow):
         self.gui_vars = global_gui_variables
         self.gui_vars["ref_main_window"] = self
 
+        self.gpc.initialize()
+
         self.wnd_manage_emission_lines = WndManageEmissionLines(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_compute_roi_maps = WndComputeRoiMaps(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_image_wizard = WndImageWizard(gpc=self.gpc, gui_vars=self.gui_vars)
@@ -65,6 +67,7 @@ class MainWindow(QMainWindow):
         self.wnd_general_fitting_settings = WndGeneralFittingSettings(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_fitting_parameters_shared = WndDetailedFittingParamsShared(gpc=self.gpc, gui_vars=self.gui_vars)
         self.wnd_fitting_parameters_lines = WndDetailedFittingParamsLines(gpc=self.gpc, gui_vars=self.gui_vars)
+
         # Indicates that the window was closed (used mostly for testing)
         self._is_closed = False
 

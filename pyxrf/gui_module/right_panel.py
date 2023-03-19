@@ -41,12 +41,13 @@ class RightPanel(QTabWidget):
             state_model_exist = self.gui_vars["gui_state"]["state_model_exists"]
             state_xrf_map_exists = self.gui_vars["gui_state"]["state_xrf_map_exists"]
 
-            if not state_file_loaded:
-                self.setCurrentIndex(0)
             self.setTabEnabled(0, state_file_loaded)
             self.setTabEnabled(1, state_file_loaded & state_model_exist)
             self.setTabEnabled(2, state_xrf_map_exists)
             self.setTabEnabled(3, state_xrf_map_exists)
+
+            if not state_file_loaded:
+                self.setCurrentIndex(0)
 
         # Propagate the call to 'update_widget_state' downstream
         for i in range(self.count()):
