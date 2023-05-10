@@ -23,7 +23,10 @@ except Exception as ex:
 
 
 class BulkXSPRESS(HandlerBase):
-    HANDLER_NAME = "XPS3_FLY"
+    specs = {
+        "XPS3_FLY",  # Old incorrect name
+        "XSP3_FLY",
+    }
 
     def __init__(self, resource_fn):
         self._handle = h5py.File(resource_fn, "r")
@@ -32,4 +35,5 @@ class BulkXSPRESS(HandlerBase):
         return self._handle["entry/instrument/detector/data"][:]
 
 
-db.reg.register_handler(BulkXSPRESS.HANDLER_NAME, BulkXSPRESS, overwrite=True)
+for spec in BulkXSPRESS.specs:
+    db.reg.register_handler(spec, BulkXSPRESS, overwrite=True)
