@@ -18,6 +18,13 @@ jobs:
         python-version: ["3.8", "3.9", "3.10"]
         numpy-version: ["1.21"]
         pyqt-version: ["5.12"]
+        include:
+          - host-os: "ubuntu-latest"
+            conda-mamba: "mamba"
+          - host-os: "macos-latest"
+            conda-mamba: "mamba"
+          - host-os: "windows-latest"
+            conda-mamba: "conda"
       fail-fast: false
 
     runs-on: ${{ matrix.host-os }}
@@ -76,7 +83,9 @@ jobs:
       run: |
         set -vxeo pipefail
 
-        conda install -y \
+        conda install mamba -n base -c conda-forge
+
+        ${{ matrix.conda-mamba }} install -y \
           python=${{ matrix.python-version }} \
           numpy=${{ matrix.numpy-version }} \
           pyqt=${{ matrix.pyqt-version }} \
@@ -94,7 +103,7 @@ jobs:
         set -vxeo pipefail
 
         # There are issues in building wheels for pystackreg>0.2.2 on OSX, so install pystackreg from CF
-        conda install -y pystackreg -c conda-forge
+        ${{ matrix.conda-mamba }} install -y pystackreg -c conda-forge
 
         conda list
         pip list
@@ -103,7 +112,7 @@ jobs:
       run: |
         set -vxeuo pipefail
 
-        conda install -y pystackreg -c conda-forge  # Some issue with pystackreg from PyPI
+        ${{ matrix.conda-mamba }} install -y pystackreg -c conda-forge  # Some issue with pystackreg from PyPI
 
         # pip install --upgrade pip setuptools
         pip install codecov
