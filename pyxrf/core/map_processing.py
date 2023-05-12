@@ -468,6 +468,12 @@ def _prepare_xrf_mask(data, mask=None, selection=None):
     return mask
 
 
+def _masked_sum(data, mask):
+    mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
+    sm = np.sum(np.sum(data * mask, axis=0), axis=0)
+    return np.array([[sm]])
+
+
 def compute_total_spectrum(
     data, *, selection=None, mask=None, chunk_pixels=5000, n_chunks_min=4, progress_bar=None, client=None
 ):
@@ -519,12 +525,6 @@ def compute_total_spectrum(
     if mask is None:
         result_fut = da.sum(da.sum(data, axis=0), axis=0).persist(scheduler=client)
     else:
-
-        def _masked_sum(data, mask):
-            mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
-            sm = np.sum(np.sum(data * mask, axis=0), axis=0)
-            return np.array([[sm]])
-
         result_fut = da.blockwise(_masked_sum, "ijk", data, "ijk", mask, "ij", dtype="float").persist(
             scheduler=client
         )
@@ -548,6 +548,22 @@ def compute_total_spectrum(
         #   but 'result' is much smaller array than 'data'
         result = np.sum(np.sum(result, axis=0), axis=0)
     return result
+
+
+def _process_block(data):
+    data = data[0]  # Data is passed as a list of ndarrays
+    _spectrum = np.sum(np.sum(data, axis=0), axis=0)
+    _count_total = np.sum(data, axis=2)
+    return np.array([[{"spectrum": _spectrum, "count_total": _count_total}]])
+
+
+def _process_block_with_mask(data, mask):
+    data = data[0]  # Data is passed as a list of ndarrays
+    mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
+    masked_data = data * mask
+    _spectrum = np.sum(np.sum(masked_data, axis=0), axis=0)
+    _count_total = np.sum(masked_data, axis=2)
+    return np.array([[{"spectrum": _spectrum, "count_total": _count_total}]])
 
 
 def compute_total_spectrum_and_count(
@@ -602,25 +618,9 @@ def compute_total_spectrum_and_count(
     logger.info(f"Dask distributed client: {n_workers} workers")
 
     if mask is None:
-
-        def _process_block(data):
-            data = data[0]  # Data is passed as a list of ndarrays
-            _spectrum = np.sum(np.sum(data, axis=0), axis=0)
-            _count_total = np.sum(data, axis=2)
-            return np.array([[{"spectrum": _spectrum, "count_total": _count_total}]])
-
         result_fut = da.blockwise(_process_block, "ij", data, "ijk", dtype=float).persist(scheduler=client)
     else:
-
-        def _process_block(data, mask):
-            data = data[0]  # Data is passed as a list of ndarrays
-            mask = np.broadcast_to(np.expand_dims(mask, axis=2), data.shape)
-            masked_data = data * mask
-            _spectrum = np.sum(np.sum(masked_data, axis=0), axis=0)
-            _count_total = np.sum(masked_data, axis=2)
-            return np.array([[{"spectrum": _spectrum, "count_total": _count_total}]])
-
-        result_fut = da.blockwise(_process_block, "ij", data, "ijk", mask, "ij", dtype=float).persist(
+        result_fut = da.blockwise(_process_block_with_mask, "ij", data, "ijk", mask, "ij", dtype=float).persist(
             scheduler=client
         )
 
