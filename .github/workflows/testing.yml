@@ -76,7 +76,9 @@ jobs:
       run: |
         set -vxeo pipefail
 
-        conda install -y \
+        conda install mamba -n base -c conda-forge
+
+        mamba install -y \
           python=${{ matrix.python-version }} \
           numpy=${{ matrix.numpy-version }} \
           pyqt=${{ matrix.pyqt-version }} \
