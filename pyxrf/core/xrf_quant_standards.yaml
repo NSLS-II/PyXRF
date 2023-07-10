@@ -279,3 +279,28 @@
         CeF3: 23.0
         Au: 21.6
     density: 44.6
+
+-   name: AXO C1
+    serial: RF11-200-S3235
+    description: Pb 73.0 / La 116.0 / Pd 30.0 / Mo 9.0 / Cu 23.0 / Fe 44.0 / Ca 267.0
+    compounds:
+        Pb: 73.0
+        La: 116.0
+        Pd: 30.0
+        Mo: 9.0
+        Cu: 23.0
+        Fe: 44.0
+        Ca: 267.0
+    density: 562.0
+
+-   name: AXO C10
+    serial: RF18-200-S4909-14
+    description: Pb 831.0 / La 1698.0 / Pd 254.0 / Mo 99.0 / Cu 224.0 / Fe 491.0
+    compounds:
+        Pb: 831.0
+        La: 1698.0
+        Pd: 254.0
+        Mo: 99.0
+        Cu: 224.0
+        Fe: 491.0
+    density: 3597.0
