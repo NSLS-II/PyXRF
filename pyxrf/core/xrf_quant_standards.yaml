@@ -282,25 +282,25 @@
 
 -   name: AXO C1
     serial: RF11-200-S3235
-    description: Pb 73.0 / La 116.0 / Pd 30.0 / Mo 9.0 / Cu 23.0 / Fe 44.0 / Ca 267.0
+    description: Pb 0.73 / La 1.16 / Pd 0.3 / Mo 0.09 / Cu 0.23 / Fe 0.44 / Ca 2.67
     compounds:
-        Pb: 73.0
-        La: 116.0
-        Pd: 30.0
-        Mo: 9.0
-        Cu: 23.0
-        Fe: 44.0
-        Ca: 267.0
-    density: 562.0
+        Pb: 0.73
+        La: 1.16
+        Pd: 0.3
+        Mo: 0.09
+        Cu: 0.23
+        Fe: 0.44
+        Ca: 2.67
+    density: 5.62
 
 -   name: AXO C10
     serial: RF18-200-S4909-14
-    description: Pb 831.0 / La 1698.0 / Pd 254.0 / Mo 99.0 / Cu 224.0 / Fe 491.0
+    description: Pb 8.31 / La 16.98 / Pd 2.54 / Mo 0.99 / Cu 2.24 / Fe 4.91
     compounds:
-        Pb: 831.0
-        La: 1698.0
-        Pd: 254.0
-        Mo: 99.0
-        Cu: 224.0
-        Fe: 491.0
-    density: 3597.0
+        Pb: 8.31
+        La: 16.98
+        Pd: 2.54
+        Mo: 0.99
+        Cu: 2.24
+        Fe: 4.91
+    density: 35.97
