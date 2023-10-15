@@ -83,7 +83,7 @@ jobs:
       run: |
         set -vxeo pipefail
 
-        conda install mamba -n base -c conda-forge
+        conda install -n base --override-channels -c conda-forge mamba 'python_abi=*=*cp*'
 
         ${{ matrix.conda-mamba }} install -y \
           python=${{ matrix.python-version }} \
