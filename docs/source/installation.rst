@@ -2,46 +2,49 @@
 Installation
 ============
 
-PyXRF is supported for Python 3.7-3.10 in Linux/Mac/Windows systems.
+PyXRF is supported for Python 3.9-3.11 in Linux/Mac/Windows systems.
 The easiest way to install PyXRF is to load it into a Conda environment from
 ``conda-forge`` Anaconda channel. Installation instructions are
 identical for all supported OS.
 
 .. note::
 
-  **Installation on Windows**: PyXRF can be installed from *conda-forge* only in the environments
-  with Python 3.9 and older. Python 3.10 and 3.11 (latest and default) are currently
-  not supported. If there is no existing Conda installation, download and
-  install *Miniconda3*, choose the option to add *Miniconda3* to system PATH when asked,
-  then run the following commands (replace the environment name `pyxrf-env` with
-  any convenient name if necessary):
+  **Installation on Windows**: Since *Conda* does not behave very well recently,
+  use *Mamba* to install PyXRF from *conda-forge* channel (see the *Mamba* installation
+  notes below). For example, the following sequence of commands creates
+  a new environment named ``pyxrf-env`` with Python 3.10 and installs PyXRF into
+  the environment. Skip the ``mamba create`` command to install PyXRF into
+  an existing environment.
 
   .. code:: bash
 
-    $ conda create -n pyxrf-env python=3.9 pip -c conda-forge
-    $ conda activate pyxrf-env
-    $ conda install pyxrf -c conda-forge
-
-
-.. note::
-
-  If you experience problems using `conda`, in particular if `conda` gets stuck trying to resolve
-  the environment, you may try using `mamba`, which is designed as a drop-in replacement for
-  `conda`. Once you install *Miniconda* or *Anaconda*, install `mamba` in the base environment:
-
-  .. code:: bash
-
-    $ conda install mamba -n base -c conda-forge
-
-  Then use `mamba` instead of `conda` in all the following commands, for example
-
-  .. code:: bash
-
-    $ mamba create -n pyxrf-env python=3.9 pip -c conda-forge
+    $ mamba create -n pyxrf-env python=3.10 pip -c conda-forge
     $ mamba activate pyxrf-env
     $ mamba install pyxrf -c conda-forge
 
-  You may still use `conda` where it works well, e.g. to activate an existing environment.
+.. note::
+
+  If you experience problems using *Conda*, in particular if *Conda* gets stuck trying to resolve
+  the environment, use *Mamba*, which is designed as a drop-in replacement for *Conda*.
+  *Mamba* is included in the `Miniforge distribution <https://github.com/conda-forge/miniforge>`_.
+  It can also be installed in the base environment of an existing installation of *Miniconda*
+  or *Anaconda*:
+
+  .. code:: bash
+
+    $ conda install -n base --override-channels -c conda-forge mamba 'python_abi=*=*cp*'
+
+  See `Mamba installation instructions <https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install>`_
+  for more details.
+
+  **How to use `mamba`:** Simply replace ``conda`` with ``mamba`` when you create an environment,
+  install or remove packages, etc. For example
+
+  .. code:: bash
+
+    $ mamba activate pyxrf-env
+    $ mamba install pyxrf -c conda-forge
+
 
 1. Install `Miniconda3 <http://conda.pydata.org/miniconda.html>`_  or
    `Anaconda <https://www.anaconda.com/distribution>`_. Select the latest version.
