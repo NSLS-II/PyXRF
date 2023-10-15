@@ -25,16 +25,16 @@ identical for all supported OS.
 .. note::
 
   If you experience problems using *Conda*, in particular if *Conda* gets stuck trying to resolve
-  the environment, use *Mamba*, which is designed as a drop-in replacement for *Conda*. *Mamba*
-  can be installed in the base environment of an existing installation of *Miniconda* or *Anaconda*:
+  the environment, use *Mamba*, which is designed as a drop-in replacement for *Conda*.
+  *Mamba* is included in the `Miniforge distribution <https://github.com/conda-forge/miniforge>`_.
+  It can also be installed in the base environment of an existing installation of *Miniconda*
+  or *Anaconda*:
 
   .. code:: bash
 
     $ conda install -n base --override-channels -c conda-forge mamba 'python_abi=*=*cp*'
 
-  *Mamba* is also integrated into *Mambaforge*, which is a replacement for *Miniconda* optimized
-  for use with ``conda-forge`` channel. See the
-  `Mamba installation instructions <https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install>`_
+  See `Mamba installation instructions <https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install>`_
   for more details.
 
   **How to use `mamba`:** Simply replace ``conda`` with ``mamba`` when you create an environment,
