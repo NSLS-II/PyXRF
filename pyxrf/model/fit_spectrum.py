@@ -626,7 +626,7 @@ class Fit1D(Atom):
             if (xx is None) or (self.y0 is None) or (self.fit_y is None):
                 msg = "Not enough data to save spectrum/fit data. Total spectrum fitting was not run."
                 raise RuntimeError(msg)
-            data = np.array([self.x0, self.y0, self.fit_y])
+            data = np.array([xx, self.y0, self.fit_y])
         else:
             logger.info("Saving spectrum based on loaded or estimated parameters.")
             if (xx is None) or (self.y0 is None) or (self.param_model.total_y is None):
