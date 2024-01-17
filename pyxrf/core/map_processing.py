@@ -14,6 +14,7 @@ from dask.distributed import Client, wait
 from numba import jit
 from progress.bar import Bar
 
+from .dask_h5py_serializers import dask_set_custom_serializers, dask_close_all_files
 from .fitting import fit_spectrum
 
 logger = logging.getLogger(__name__)
@@ -857,6 +858,9 @@ def fit_xrf_map(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -881,9 +885,12 @@ def fit_xrf_map(
     if data_is_from_file:
         file_obj.close()
 
-    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
+    # # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -1070,6 +1077,9 @@ def compute_selected_rois(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -1102,9 +1112,12 @@ def compute_selected_rois(
     if file_obj:
         file_obj.close()
 
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
