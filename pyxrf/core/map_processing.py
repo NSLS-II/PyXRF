@@ -520,6 +520,9 @@ def compute_total_spectrum(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -537,9 +540,12 @@ def compute_total_spectrum(
     if file_obj:
         file_obj.close()
 
-    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
+    # # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -615,6 +621,9 @@ def compute_total_spectrum_and_count(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -633,9 +642,12 @@ def compute_total_spectrum_and_count(
     if file_obj:
         file_obj.close()
 
-    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
+    # # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -711,30 +723,30 @@ def _fit_xrf_block(data, data_sel_indices, matv, snip_param, use_snip):
     return data_out
 
 
-def _dask_release_file_descriptors(*, client):
-    """
-    Make sure the Dask Client releases descriptors of the HDF5 files opened in read-only mode
-    so that they could be opened for reading.
-    """
-    # Runs small task on Dask client. Starting from v2021.7.0, Dask Distributed does not always
-    # close HDF5 files, that are open in read-only mode for loading raw data. Submitting and
-    # computing a small unrelated tasks seem to prompt the client to release the resources from
-    # the previous task and close the files.
-    rfut = da.sum(da.random.random((1000,), chunks=(10,))).persist(scheduler=client)
-    rfut.compute(scheduler=client)
+# def _dask_release_file_descriptors(*, client):
+#     """
+#     Make sure the Dask Client releases descriptors of the HDF5 files opened in read-only mode
+#     so that they could be opened for reading.
+#     """
+#     # Runs small task on Dask client. Starting from v2021.7.0, Dask Distributed does not always
+#     # close HDF5 files, that are open in read-only mode for loading raw data. Submitting and
+#     # computing a small unrelated tasks seem to prompt the client to release the resources from
+#     # the previous task and close the files.
+#     rfut = da.sum(da.random.random((1000,), chunks=(10,))).persist(scheduler=client)
+#     rfut.compute(scheduler=client)
 
-    current_os = platform.system()
-    if current_os == "Linux":
-        # Starting with Dask/Distributed version 2022.2.0 the following step is required:
-        # https://distributed.dask.org/en/stable/worker-memory.html#manually-trim-memory
-        # (works for Linux only, there are different solutions for other OS if needed)
-        import ctypes
+#     current_os = platform.system()
+#     if current_os == "Linux":
+#         # Starting with Dask/Distributed version 2022.2.0 the following step is required:
+#         # https://distributed.dask.org/en/stable/worker-memory.html#manually-trim-memory
+#         # (works for Linux only, there are different solutions for other OS if needed)
+#         import ctypes
 
-        def trim_memory() -> int:
-            libc = ctypes.CDLL("libc.so.6")
-            return libc.malloc_trim(0)
+#         def trim_memory() -> int:
+#             libc = ctypes.CDLL("libc.so.6")
+#             return libc.malloc_trim(0)
 
-        client.run(trim_memory)
+#         client.run(trim_memory)
 
 
 def fit_xrf_map(
