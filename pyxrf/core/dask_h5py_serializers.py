@@ -2,7 +2,7 @@
 # 'distributed/protocols/h5py.py'
 
 import distributed.protocol.h5py  # noqa: F401
-from distributed.protocol.serialize import dask_serialize, dask_deserialize
+from distributed.protocol.serialize import dask_deserialize, dask_serialize
 
 deserialized_files = set()
 

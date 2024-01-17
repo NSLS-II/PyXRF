@@ -14,7 +14,7 @@ from dask.distributed import Client, wait
 from numba import jit
 from progress.bar import Bar
 
-from .dask_h5py_serializers import dask_set_custom_serializers, dask_close_all_files
+from .dask_h5py_serializers import dask_close_all_files, dask_set_custom_serializers
 from .fitting import fit_spectrum
 
 logger = logging.getLogger(__name__)
