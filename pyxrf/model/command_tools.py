@@ -663,7 +663,7 @@ def pyxrf_batch(
             # only ``start_id`` is specified:
             #   process only one file that contains ``start_id`` in its name
             #   (only if such file exists)
-            pattern = f"^[^_]*_{str(start_id)}\D+"  # noqa: W605
+            pattern = f"^[^_]*_{str(start_id)}\\D+"  # noqa: W605
             flist = [fname for fname in all_files if re.search(pattern, os.path.basename(fname))]
 
             if len(flist) < 1:
@@ -679,7 +679,7 @@ def pyxrf_batch(
             #   select files, which contain the respective ID substring in their names
             flist = []
             for data_id in range(start_id, end_id + 1):
-                pattern = f"^[^_]*_{str(data_id)}\D+"  # noqa: W605
+                pattern = f"^[^_]*_{str(data_id)}\\D+"  # noqa: W605
                 flist += [fname for fname in all_files if re.search(pattern, os.path.basename(fname))]
             if len(flist) < 1:
                 print(f"No files with Scan IDs in the range {start_id} .. {end_id} were found.")
