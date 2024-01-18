@@ -3381,12 +3381,12 @@ def _save_xanes_maps_to_tiff(
             print(f"    image size (Ny, Nx): ({n_y_pixels}, {n_x_pixels})", file=f_log)
             print(
                 f"    Y-axis scan range [Y_min, Y_max, abs(Y_max-Y_min)]: "
-                f"[{y_min:.5g}, {y_max:.5g}, {abs(y_max-y_min):.5g}]",
+                f"[{y_min:.5g}, {y_max:.5g}, {abs(y_max - y_min):.5g}]",
                 file=f_log,
             )
             print(
                 f"    X-axis scan range [X_min, X_max, abs(X_max-X_min)]: "
-                f"[{x_min:.5g}, {x_max:.5g}, {abs(x_max-x_min):.5g}]",
+                f"[{x_min:.5g}, {x_max:.5g}, {abs(x_max - x_min):.5g}]",
                 file=f_log,
             )
 

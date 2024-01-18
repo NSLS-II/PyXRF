@@ -14,6 +14,7 @@ from dask.distributed import Client, wait
 from numba import jit
 from progress.bar import Bar
 
+from .dask_h5py_serializers import dask_close_all_files, dask_set_custom_serializers
 from .fitting import fit_spectrum
 
 logger = logging.getLogger(__name__)
@@ -519,6 +520,9 @@ def compute_total_spectrum(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -536,9 +540,12 @@ def compute_total_spectrum(
     if file_obj:
         file_obj.close()
 
-    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
+    # # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -614,6 +621,9 @@ def compute_total_spectrum_and_count(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -632,9 +642,12 @@ def compute_total_spectrum_and_count(
     if file_obj:
         file_obj.close()
 
-    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
+    # # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -710,30 +723,30 @@ def _fit_xrf_block(data, data_sel_indices, matv, snip_param, use_snip):
     return data_out
 
 
-def _dask_release_file_descriptors(*, client):
-    """
-    Make sure the Dask Client releases descriptors of the HDF5 files opened in read-only mode
-    so that they could be opened for reading.
-    """
-    # Runs small task on Dask client. Starting from v2021.7.0, Dask Distributed does not always
-    # close HDF5 files, that are open in read-only mode for loading raw data. Submitting and
-    # computing a small unrelated tasks seem to prompt the client to release the resources from
-    # the previous task and close the files.
-    rfut = da.sum(da.random.random((1000,), chunks=(10,))).persist(scheduler=client)
-    rfut.compute(scheduler=client)
+# def _dask_release_file_descriptors(*, client):
+#     """
+#     Make sure the Dask Client releases descriptors of the HDF5 files opened in read-only mode
+#     so that they could be opened for reading.
+#     """
+#     # Runs small task on Dask client. Starting from v2021.7.0, Dask Distributed does not always
+#     # close HDF5 files, that are open in read-only mode for loading raw data. Submitting and
+#     # computing a small unrelated tasks seem to prompt the client to release the resources from
+#     # the previous task and close the files.
+#     rfut = da.sum(da.random.random((1000,), chunks=(10,))).persist(scheduler=client)
+#     rfut.compute(scheduler=client)
 
-    current_os = platform.system()
-    if current_os == "Linux":
-        # Starting with Dask/Distributed version 2022.2.0 the following step is required:
-        # https://distributed.dask.org/en/stable/worker-memory.html#manually-trim-memory
-        # (works for Linux only, there are different solutions for other OS if needed)
-        import ctypes
+#     current_os = platform.system()
+#     if current_os == "Linux":
+#         # Starting with Dask/Distributed version 2022.2.0 the following step is required:
+#         # https://distributed.dask.org/en/stable/worker-memory.html#manually-trim-memory
+#         # (works for Linux only, there are different solutions for other OS if needed)
+#         import ctypes
 
-        def trim_memory() -> int:
-            libc = ctypes.CDLL("libc.so.6")
-            return libc.malloc_trim(0)
+#         def trim_memory() -> int:
+#             libc = ctypes.CDLL("libc.so.6")
+#             return libc.malloc_trim(0)
 
-        client.run(trim_memory)
+#         client.run(trim_memory)
 
 
 def fit_xrf_map(
@@ -857,6 +870,9 @@ def fit_xrf_map(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -881,9 +897,12 @@ def fit_xrf_map(
     if data_is_from_file:
         file_obj.close()
 
-    # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
+    # # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -1070,6 +1089,9 @@ def compute_selected_rois(
     else:
         client_is_local = False
 
+    client.run(dask_set_custom_serializers)
+    dask_set_custom_serializers()
+
     n_workers = len(client.scheduler_info()["workers"])
     logger.info(f"Dask distributed client: {n_workers} workers")
 
@@ -1102,9 +1124,12 @@ def compute_selected_rois(
     if file_obj:
         file_obj.close()
 
+    client.run(dask_close_all_files)
+    dask_close_all_files()
+
     # The following code is needed to cause Dask 'distributed>=2021.7.0' to close the h5file.
-    del result_fut
-    _dask_release_file_descriptors(client=client)
+    # del result_fut
+    # _dask_release_file_descriptors(client=client)
 
     if client_is_local:
         client.close()
@@ -1237,14 +1262,37 @@ def snip_method_numba(
     # where there are peaks. On the boundary part, we don't care
     # the accuracy so much. But we need to pay attention to edge
     # effects in general convolution.
-    A = s.sum()
 
-    background = np.convolve(background, s) / A
-    # Trim 'background' array to imitate the np.convolve option 'mode="same"'
-    mg = len(s) - 1
-    n_beg = mg // 2
-    n_end = n_beg - mg  # Negative
-    background = background[n_beg:n_end]
+    def convolve(background, s):
+        # Modifies the contents of the 'background' array.
+        # This implementation of convolution replaces the original
+        #   implementation based on 'np.convolve'. Seems to work as fast
+        #   as the original implementation.
+        s_len = len(s)
+        n_beg = (s_len - 1) // 2
+        A = s.sum()
+        source = np.hstack(
+            (
+                np.zeros(n_beg, dtype=background.dtype),
+                background,
+                np.zeros(s_len - n_beg, dtype=background.dtype),
+            )
+        )
+        for n in range(len(background)):
+            background[n] = np.sum(source[n : n + s_len] * s) / A
+
+    convolve(background, s)
+
+    # # The following implementation of convolution stopped working because of
+    # # unclear issues with 'np.convolve' (gave 'List index out of range' error),
+    # # The code is left for reference.
+    # A = s.sum()
+    # background = np.convolve(background, s) / A
+    # # Trim 'background' array to imitate the np.convolve option 'mode="same"'
+    # mg = len(s) - 1
+    # n_beg = mg // 2
+    # n_end = n_beg - mg  # Negative
+    # background = background[n_beg:n_end]
 
     window_p = width * fwhm / e_lin
     if spectral_binning is not None and spectral_binning > 0:

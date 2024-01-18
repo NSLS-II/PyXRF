@@ -346,7 +346,7 @@ class ROIModel(Atom):
         #   det1, det2, ... , i.e. 'det' followed by integer number.
         # The channel name is always located at the end of the ``data_title``.
         # If the channel name is found, then build the path using this name.
-        srch = re.search("det\d+$", self.data_title)  # noqa: W605
+        srch = re.search(r"det\d+$", self.data_title)  # noqa: W605
         if srch:
             det_name = srch.group(0)
         inner_path = f"xrfmap/{det_name}"
