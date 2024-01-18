@@ -285,7 +285,7 @@ def fit_pixel_data_and_save(
         channel_num = len(param_channel_list)
         for i in range(channel_num):
             inner_path = "xrfmap/" + det_channel_names[i]
-            print(f"Processing data from detector channel {det_channel_names[i]} (#{i+1}) ...")
+            print(f"Processing data from detector channel {det_channel_names[i]} (#{i + 1}) ...")
 
             # load param file
             param_file_name = param_channel_list[i]

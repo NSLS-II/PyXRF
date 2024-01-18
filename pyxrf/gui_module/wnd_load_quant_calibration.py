@@ -344,7 +344,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
                         ttip = f"Fluorescence (F): {fluorescence:12g}\nDensity (D): {density:12g}\n"
                         # Avoid very small values of density (probably zero)
                         if abs(density) > 1e-30:
-                            ttip += f"F/D: {fluorescence/density:12g}"
+                            ttip += f"F/D: {fluorescence / density:12g}"
 
                         item.setToolTip(ttip)
 
