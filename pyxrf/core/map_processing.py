@@ -1262,14 +1262,37 @@ def snip_method_numba(
     # where there are peaks. On the boundary part, we don't care
     # the accuracy so much. But we need to pay attention to edge
     # effects in general convolution.
-    A = s.sum()
 
-    background = np.convolve(background, s) / A
-    # Trim 'background' array to imitate the np.convolve option 'mode="same"'
-    mg = len(s) - 1
-    n_beg = mg // 2
-    n_end = n_beg - mg  # Negative
-    background = background[n_beg:n_end]
+    def convolve(background, s):
+        # Modifies the contents of the 'background' array.
+        # This implementation of convolution replaces the original
+        #   implementation based on 'np.convolve'. Seems to work as fast
+        #   as the original implementation.
+        s_len = len(s)
+        n_beg = (s_len - 1) // 2
+        A = s.sum()
+        source = np.hstack(
+            (
+                np.zeros(n_beg, dtype=background.dtype),
+                background,
+                np.zeros(s_len - n_beg, dtype=background.dtype),
+            )
+        )
+        for n in range(len(background)):
+            background[n] = np.sum(source[n : n + s_len] * s) / A
+
+    convolve(background, s)
+
+    # # The following implementation of convolution stopped working because of
+    # # unclear issues with 'np.convolve' (gave 'List index out of range' error),
+    # # The code is left for reference.
+    # A = s.sum()
+    # background = np.convolve(background, s) / A
+    # # Trim 'background' array to imitate the np.convolve option 'mode="same"'
+    # mg = len(s) - 1
+    # n_beg = mg // 2
+    # n_end = n_beg - mg  # Negative
+    # background = background[n_beg:n_end]
 
     window_p = width * fwhm / e_lin
     if spectral_binning is not None and spectral_binning > 0:
