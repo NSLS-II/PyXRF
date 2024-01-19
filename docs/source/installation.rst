@@ -7,20 +7,6 @@ The easiest way to install PyXRF is to load it into a Conda environment from
 ``conda-forge`` Anaconda channel. Installation instructions are
 identical for all supported OS.
 
-.. note::
-
-  **Installation on Windows**: Since *Conda* does not behave very well recently,
-  use *Mamba* to install PyXRF from *conda-forge* channel (see the *Mamba* installation
-  notes below). For example, the following sequence of commands creates
-  a new environment named ``pyxrf-env`` with Python 3.10 and installs PyXRF into
-  the environment. Skip the ``mamba create`` command to install PyXRF into
-  an existing environment.
-
-  .. code:: bash
-
-    $ mamba create -n pyxrf-env python=3.10 pip -c conda-forge
-    $ mamba activate pyxrf-env
-    $ mamba install pyxrf -c conda-forge
 
 .. note::
 
@@ -42,6 +28,7 @@ identical for all supported OS.
 
   .. code:: bash
 
+    $ mamba create -n pyxrf-env python=3.11 pip -c conda-forge
     $ mamba activate pyxrf-env
     $ mamba install pyxrf -c conda-forge
 
@@ -66,17 +53,11 @@ identical for all supported OS.
 
 3. Install PyXRF from ``conda-forge`` Anaconda channels.
 
-   Create new Conda environment with the latest version of Python:
+   Create new Conda environment with the desired version of Python (e.g. v3.11):
 
    .. code:: bash
 
-       $ conda create -n pyxrf-env python pip -c conda-forge
-
-   or with the desired version of Python (e.g. 3.9):
-
-   .. code:: bash
-
-       $ conda create -n pyxrf-env python=3.9 pip -c conda-forge
+       $ conda create -n pyxrf-env python=3.11 pip -c conda-forge
 
    Activate the new environment:
 
@@ -92,20 +73,15 @@ identical for all supported OS.
 
 4. Install PyXRF from ``PyPI``:
 
-   Create new Conda environment with the latest version of Python and ``xraylib`` package,
-   which is not available from PyPI:
+   Create new Conda environment with the desired version of Python (e.g. v3.11), ``xraylib`` and
+   ``scikit-beam`` packages (recommended):
 
    .. code:: bash
 
-       $ conda create -n pyxrf-env python pip xraylib scikit-beam -c conda-forge
-
-   or with the desired version of Python (e.g. 3.9):
-
-   .. code:: bash
-
-       $ conda create -n pyxrf-env python=3.9 pip xraylib scikit-beam -c conda-forge
+       $ conda create -n pyxrf-env python=3.11 pip xraylib scikit-beam -c conda-forge
 
    The ``scikit-beam`` package may be installed may be installed from PyPI if necessary.
+   Third party distribution of ``xraylib`` package also exists on PyPI.
 
    Activate the new environment:
 
@@ -118,7 +94,6 @@ identical for all supported OS.
    .. code:: bash
 
        $ pip install pyxrf PyQt5
-       $ pip install pyxrf 'PyQt5<5.15'  # Older version of PyQT
 
    or from source (editable installation):
 
