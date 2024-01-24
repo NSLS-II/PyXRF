@@ -290,6 +290,7 @@ def make_hdf(
     save_scaler=True,
     num_end_lines_excluded=None,
     skip_scan_types=None,
+    catalog=None,
 ):
     """
     Load data from database and save it in HDF5 files.
@@ -402,6 +403,9 @@ def make_hdf(
         The list of plan types (e.g. ['FlyPlan1D']) that should cause the loader to raise
         an exception. The parameter is used to allow scripts to ignore certain plan types
         when downloading data using ranges of scans IDs. (Supported only at HXN.)
+    catalog: str or None
+        Name of the catalog (e.g. `"srx"`). The function attempts to determine the catalog
+        name automatically if the parameter is not specified or `None`.
     """
 
     if wd:
@@ -2331,6 +2335,7 @@ def map_data2D_tes(
     m, n_pt_max, missing_rows = 0, -1, []  # m - index
     try:
         while True:
+            print("1") ##
             try:
                 while True:
                     name, doc = next(docs_primary)
@@ -2344,8 +2349,10 @@ def map_data2D_tes(
             except StopIteration:
                 break  # All events are processed, exit the loop
 
+            print("2") ##
             if is_filled:
                 data = doc["data"][detector_field]
+                print(f"data={data}")  ##
                 data_det1 = np.array(data[:, 0, :], dtype=np.float32)
 
                 # The following is the fix for the case when data has corrupt row (smaller number of data points).
