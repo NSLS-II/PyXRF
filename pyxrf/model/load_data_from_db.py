@@ -16,6 +16,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from event_model import Filler
+import dask.array as da
 
 try:
     import databroker
@@ -675,6 +676,34 @@ def _get_metadata_all_from_descriptor_document(hdr, *, data_key, stream_name="ba
     value = value or None  # Replace [] with None
 
     return value
+
+
+def _get_metadata_value_from_descriptor_document_tiled(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the first occurrence of the variable with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
+    value = None
+    try:
+        value = list(hdr[stream_name][data_key])[0]
+    except Exception:
+        pass
+
+    return value
+
+
+def _get_metadata_all_from_descriptor_document_tiled(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the list of the recorded values of variables with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
+    value = []
+    try:
+        value = list(hdr[stream_name][data_key])
+    except Exception:
+        pass
+
+    return value or None  # Replace [] with None
 
 
 def map_data2D_hxn(
@@ -2201,8 +2230,12 @@ def map_data2D_srx_new_tiled(
             "Scan is not successfully completed. Only successfully completed scans are currently processed."
         )
 
+    md_version = start_doc["md_version"]
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
+
+    import pprint  ##
+    print(f"=== start_doc={pprint.pformat(start_doc)}")  ##
 
     # The following scan parameters are used to compute positions for some motors.
     #   (Positions of course stages are not saved during the scan)
@@ -2210,7 +2243,7 @@ def map_data2D_srx_new_tiled(
     fast_step = (fast_stop - fast_start) / fast_pts
     slow_step = (slow_stop - slow_start) / slow_pts
 
-    snaking_enabled = scan_doc["snake"] == 1
+    snaking_enabled = bool(scan_doc["snake"])
 
     print(f"Scan type: {scan_doc['type']}")
 
@@ -2233,12 +2266,12 @@ def map_data2D_srx_new_tiled(
     # Get metadata
     mdata = _extract_metadata_from_header(hdr)
 
-    v = _get_metadata_value_from_descriptor_document(hdr, data_key="ring_current", stream_name="baseline")
+    v = _get_metadata_value_from_descriptor_document_tiled(hdr, data_key="ring_current", stream_name="baseline")
     if v is not None:
         mdata["instrument_beam_current"] = v
 
     for ax in ["X", "Y", "Z"]:
-        v = _get_metadata_all_from_descriptor_document(
+        v = _get_metadata_all_from_descriptor_document_tiled(
             hdr, data_key=f"nanoKB_interferometer_pos{ax}", stream_name="baseline"
         )
         if v is not None:
@@ -2278,169 +2311,57 @@ def map_data2D_srx_new_tiled(
         else:
             slow_key = slow_motor
 
-        # Let's get the data using the events! Yay!
-        filler = Filler(db.reg.handler_reg, inplace=True)
-        docs_stream0 = hdr.documents("stream0", fill=False)
-        docs_primary = hdr.documents("primary", fill=False)
-        d_xs, d_xs_sum, N_xs = [], [], 0
-        d_xs2, d_xs2_sum, N_xs2 = [], [], 0
-        sclr_list = ["i0", "i0_time", "time", "im", "it"]
-        sclr_dict = {}
-        fast_pos, slow_pos = [], []
+        # data_primary = hdr.primary["data"]
+        data_stream0 = hdr.stream0["data"]
 
-        n_recorded_events = 0
+        d_xs, d_xs_sum, N_xs, d_xs2, d_xs2_sum, N_xs2 = None, None, 0, None, None, 0
+        if "xs_fluor" in data_stream0:
+            d_xs = data_stream0["xs_fluor"]
+            d_xs_sum = da.sum(d_xs, 2)
+            N_xs = d_xs.shape[2]
+        elif "fluor" in data_stream0:  # Old format
+            d_xs = data_stream0["fluor"]
+            d_xs_sum = da.sum(d_xs, 2)
+            N_xs = d_xs.shape[2]
 
-        try:
-            m = 0
-            while True:
-                try:
-                    while True:
-                        name, doc = next(docs_stream0)
-                        try:
-                            filler(name, doc)
-                        except Exception:
-                            pass  # The document can not be filled. Leave it unfilled.
-                        if name == "event":
-                            break
-                except StopIteration:
-                    break  # All events are processed, exit the loop
+        if "xs_fluor_xs2" in data_stream0:
+            d_xs2 = data_stream0["xs_fluor_xs2"]
+            d_xs2_sum = da.sum(d_xs2, 2)
+            N_xs2 = d_xs2.shape[2]
+        elif "fluor_xs2" in data_stream0:  # Old format
+            d_xs2 = data_stream0["fluor_xs2"]
+            d_xs2_sum = da.sum(d_xs2, 2)
+            N_xs2 = d_xs2.shape[2]
 
-                try:
-                    while True:
-                        name_p, doc_p = next(docs_primary)
-                        try:
-                            filler(name_p, doc_p)
-                        except Exception:
-                            pass  # The document can not be filled. Leave it unfilled.
-                        if name == "event":
-                            break
-                except StopIteration:
-                    raise RuntimeError(f"Matching event #{m} was not found in 'primary' stream")
+        if not create_each_det:
+            d_xs, d_xs2 = None, None
 
-                def data_or_empty_array(v):
-                    """
-                    If data is a string, then return an empty array, otherwise return the data as numpy array.
-                    """
-                    if isinstance(v, str):
-                        v = []
-                    return np.asarray(v)
+        if d_xs_sum is None and d_xs2_sum is None:
+            raise ValueError(f"No fluorescence data is found for the experiment {run_id_uid!r}")
 
-                v, vp = doc, doc_p
-                if "xs" in dets or "xs4" in dets:
-                    event_data = data_or_empty_array(v["data"]["fluor"])
-                    if event_data.size:
-                        event_data = np.asarray(event_data, dtype=np.float32)
-                        N_xs = max(N_xs, event_data.shape[1])
-                        d_xs_sum.append(np.sum(event_data, axis=1))
-                        if create_each_det:
-                            d_xs.append(event_data)
-                    else:
-                        # Unfilled document
-                        d_xs_sum.append(event_data)
-                        if create_each_det:
-                            d_xs.append(event_data)
-
-                if "xs2" in dets:
-                    event_data = data_or_empty_array(v["data"]["fluor_xs2"])
-                    if event_data.size:
-                        event_data = np.asarray(event_data, dtype=np.float32)
-                        N_xs2 = max(N_xs2, event_data.shape[1])
-                        d_xs2_sum.append(np.sum(event_data, axis=1))
-                        if create_each_det:
-                            d_xs2.append(event_data)
-                    else:
-                        # Unfilled document
-                        d_xs2_sum.append(event_data)
-                        if create_each_det:
-                            d_xs2.append(event_data)
-
-                keys = v["data"].keys()
-                for s in sclr_list:
-                    if s in keys:
-                        tmp = data_or_empty_array(v["data"][s])
-                        if s not in sclr_dict:
-                            sclr_dict[s] = [tmp]
-                        else:
-                            sclr_dict[s].append(tmp)
-
-                if fast_key == "fast_gen":
-                    # Generate positions
-                    row_pos_fast = np.arange(fast_pts) * fast_step + fast_start
-                    if snaking_enabled and (n_recorded_events % 2):
-                        row_pos_fast = np.flip(row_pos_fast)
+        sclr_list = ["i0", "i0_time", "im", "it"]
+        sclr_dict = dict()
+        for k in sclr_list:
+            if k in data_stream0:
+                if k not in sclr_dict:
+                    sclr_dict[k] = [data_stream0[k]]
                 else:
-                    row_pos_fast = data_or_empty_array(v["data"][fast_key])
-                fast_pos.append(row_pos_fast)
+                    sclr_dict[k].append(data_stream0[k])
 
-                if slow_key == "slow_gen":
-                    # Generate positions
-                    row_pos_slow = np.ones(fast_pts) * (n_recorded_events * slow_step + slow_start)
-                elif "enc" not in slow_key:
-                    # vp = next(ep)
-                    # filler("event", vp)
-                    tmp = data_or_empty_array(vp["data"][slow_key])
-                    row_pos_slow = np.array([tmp] * n_scan_fast)
-                else:
-                    row_pos_slow = np.array(data_or_empty_array(v["data"][slow_key]))
-                slow_pos.append(row_pos_slow)
+        if fast_key != "fast_gen":
+            fast_pos = data_stream0[fast_key]
+            slow_pos = data_stream0[slow_key]
+        else:
+            row_pos_fast = da.arange(fast_pts) * fast_step + fast_start
+            fast_pos = da.broadcast_to(row_pos_fast, (slow_pts, fast_pts))
+            if snaking_enabled:
+                rows_to_flip = list(range(1, 2, slow_pts))  # Flip 'even' rows (numbers are 0-based)
+                fast_pos[rows_to_flip, :] = da.fliplr(fast_pos[rows_to_flip, :]) 
+            col_pos_slow = da.arange(slow_pts) * slow_step + slow_start
+            slow_pos =  da.transpose(da.broadcast_to(col_pos_slow, (fast_pts, slow_pts)))
 
-                n_recorded_events = m + 1
-
-                if m > 0 and not (m % 10):
-                    print(f"Processed lines: {m}")
-
-                # Delete filled data (it will not be used anymore). This prevents memory leak.
-                if "data" in doc:
-                    doc["data"].clear()
-                if "data" in doc_p:
-                    doc_p["data"].clear()
-                filler.clear_handler_cache()
-
-                m += 1
-
-        except Exception as ex:
-            logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
-
-        def repair_set(dset_list, n_row_pts, msg):
-            """
-            Replaces corrupt rows (incorrect number of points) with closest 'good' row. This allows to load
-            and use data from corrupt scans. The function will have no effect on 'good' scans.
-            If there are no rows with correct number of points (unlikely case), then the array remains unchanged.
-            """
-            missed_rows = []
-            n_last_good_row = -1
-            for n in range(len(dset_list)):
-                d = dset_list[n]
-                n_pts = d.shape[0]
-                if n_pts != n_row_pts:
-                    print(
-                        f"WARNING: ({msg}) Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected."
-                    )
-                    if n_last_good_row == -1:
-                        missed_rows.append(n)
-                    else:
-                        dset_list[n] = np.array(dset_list[n_last_good_row])
-                        print(f"({msg}) Data in row #{n + 1} is replaced by data from row #{n_last_good_row}")
-                else:
-                    n_last_good_row = n
-                    if missed_rows:
-                        for nr in missed_rows:
-                            dset_list[nr] = np.array(dset_list[n_last_good_row])
-                            print(f"({msg}) Data in row #{nr + 1} is replaced by data from row #{n_last_good_row}")
-                        missed_rows = []
-
-        sclr_name = list(sclr_dict.keys())
-
-        repair_set(d_xs_sum, n_scan_fast, "XS_sum")
-        repair_set(d_xs, n_scan_fast, "XS")
-        repair_set(d_xs2_sum, n_scan_fast, "XS2_sum")
-        repair_set(d_xs2, n_scan_fast, "XS2")
-        repair_set(fast_pos, n_scan_fast, "fast pos")
-        repair_set(slow_pos, n_scan_fast, "slow pos")
-        for sc in sclr_dict.values():
-            repair_set(sc, n_scan_fast, "sclr")
-
-        pos_pos = np.zeros((2, n_recorded_events, n_scan_fast))
+        n_events, n_points = fast_pos.shape[0], fast_pos.shape[1]
+        pos_pos = da.zeros((2, n_events, n_points), dtype=np.float32)
         if "x" in slow_key:
             pos_pos[1, :, :] = fast_pos
             pos_pos[0, :, :] = slow_pos
@@ -2449,23 +2370,210 @@ def map_data2D_srx_new_tiled(
             pos_pos[1, :, :] = slow_pos
         pos_name = ["x_pos", "y_pos"]
 
-        if n_recorded_events != n_scan_slow:
-            logger.error(
-                "The number of recorded events (%d) is not equal to the expected number of events (%d): "
-                "The scan is incomplete.",
-                n_recorded_events,
-                n_scan_slow,
-            )
+        sclr_names = list(sclr_dict.keys())
+        sclr = da.zeros((n_events, n_points, len(sclr_names)), dtype=np.float32)
+        for n, sname in enumerate(sclr_names):
+            print(f"n={n} sname={sname}")  ##
+            sclr[:, :, n] = da.asarray(sclr_dict[sname])
 
-        # The following arrays may be empty if 'create_each_det == False' or the detector is not used.
-        d_xs = np.asarray(d_xs)
-        d_xs_sum = np.asarray(d_xs_sum)
-        d_xs2 = np.asarray(d_xs2)
-        d_xs2_sum = np.asarray(d_xs2_sum)
+        # # The following arrays may be empty if 'create_each_det == False' or the detector is not used.
+        # d_xs = np.asarray(d_xs)
+        # d_xs_sum = np.asarray(d_xs_sum)
+        # d_xs2 = np.asarray(d_xs2)
+        # d_xs2_sum = np.asarray(d_xs2_sum)
 
-        sclr = np.zeros((n_recorded_events, n_scan_fast, len(sclr_name)))
-        for n, sname in enumerate(sclr_name):
-            sclr[:, :, n] = np.asarray(sclr_dict[sname])
+        # sclr = np.zeros((n_recorded_events, n_scan_fast, len(sclr_name)))
+        # for n, sname in enumerate(sclr_name):
+        #     sclr[:, :, n] = np.asarray(sclr_dict[sname])
+
+        # # Let's get the data using the events! Yay!
+        # filler = Filler(db.reg.handler_reg, inplace=True)
+        # docs_stream0 = hdr.documents("stream0", fill=False)
+        # docs_primary = hdr.documents("primary", fill=False)
+        # d_xs, d_xs_sum, N_xs = [], [], 0
+        # d_xs2, d_xs2_sum, N_xs2 = [], [], 0
+        # sclr_list = ["i0", "i0_time", "time", "im", "it"]
+        # sclr_dict = {}
+        # fast_pos, slow_pos = [], []
+
+        # n_recorded_events = 0
+
+        # try:
+        #     m = 0
+        #     while True:
+        #         try:
+        #             while True:
+        #                 name, doc = next(docs_stream0)
+        #                 try:
+        #                     filler(name, doc)
+        #                 except Exception:
+        #                     pass  # The document can not be filled. Leave it unfilled.
+        #                 if name == "event":
+        #                     break
+        #         except StopIteration:
+        #             break  # All events are processed, exit the loop
+
+        #         try:
+        #             while True:
+        #                 name_p, doc_p = next(docs_primary)
+        #                 try:
+        #                     filler(name_p, doc_p)
+        #                 except Exception:
+        #                     pass  # The document can not be filled. Leave it unfilled.
+        #                 if name == "event":
+        #                     break
+        #         except StopIteration:
+        #             raise RuntimeError(f"Matching event #{m} was not found in 'primary' stream")
+
+        #         def data_or_empty_array(v):
+        #             """
+        #             If data is a string, then return an empty array, otherwise return the data as numpy array.
+        #             """
+        #             if isinstance(v, str):
+        #                 v = []
+        #             return np.asarray(v)
+
+        #         v, vp = doc, doc_p
+        #         if "xs" in dets or "xs4" in dets:
+        #             event_data = data_or_empty_array(v["data"]["fluor"])
+        #             if event_data.size:
+        #                 event_data = np.asarray(event_data, dtype=np.float32)
+        #                 N_xs = max(N_xs, event_data.shape[1])
+        #                 d_xs_sum.append(np.sum(event_data, axis=1))
+        #                 if create_each_det:
+        #                     d_xs.append(event_data)
+        #             else:
+        #                 # Unfilled document
+        #                 d_xs_sum.append(event_data)
+        #                 if create_each_det:
+        #                     d_xs.append(event_data)
+
+        #         if "xs2" in dets:
+        #             event_data = data_or_empty_array(v["data"]["fluor_xs2"])
+        #             if event_data.size:
+        #                 event_data = np.asarray(event_data, dtype=np.float32)
+        #                 N_xs2 = max(N_xs2, event_data.shape[1])
+        #                 d_xs2_sum.append(np.sum(event_data, axis=1))
+        #                 if create_each_det:
+        #                     d_xs2.append(event_data)
+        #             else:
+        #                 # Unfilled document
+        #                 d_xs2_sum.append(event_data)
+        #                 if create_each_det:
+        #                     d_xs2.append(event_data)
+
+        #         keys = v["data"].keys()
+        #         for s in sclr_list:
+        #             if s in keys:
+        #                 tmp = data_or_empty_array(v["data"][s])
+        #                 if s not in sclr_dict:
+        #                     sclr_dict[s] = [tmp]
+        #                 else:
+        #                     sclr_dict[s].append(tmp)
+
+        #         if fast_key == "fast_gen":
+        #             # Generate positions
+        #             row_pos_fast = np.arange(fast_pts) * fast_step + fast_start
+        #             if snaking_enabled and (n_recorded_events % 2):
+        #                 row_pos_fast = np.flip(row_pos_fast)
+        #         else:
+        #             row_pos_fast = data_or_empty_array(v["data"][fast_key])
+        #         fast_pos.append(row_pos_fast)
+
+        #         if slow_key == "slow_gen":
+        #             # Generate positions
+        #             row_pos_slow = np.ones(fast_pts) * (n_recorded_events * slow_step + slow_start)
+        #         elif "enc" not in slow_key:
+        #             # vp = next(ep)
+        #             # filler("event", vp)
+        #             tmp = data_or_empty_array(vp["data"][slow_key])
+        #             row_pos_slow = np.array([tmp] * n_scan_fast)
+        #         else:
+        #             row_pos_slow = np.array(data_or_empty_array(v["data"][slow_key]))
+        #         slow_pos.append(row_pos_slow)
+
+        #         n_recorded_events = m + 1
+
+        #         if m > 0 and not (m % 10):
+        #             print(f"Processed lines: {m}")
+
+        #         # Delete filled data (it will not be used anymore). This prevents memory leak.
+        #         if "data" in doc:
+        #             doc["data"].clear()
+        #         if "data" in doc_p:
+        #             doc_p["data"].clear()
+        #         filler.clear_handler_cache()
+
+        #         m += 1
+
+        # except Exception as ex:
+        #     logger.error(f"Error occurred while reading data: {ex}. Trying to retrieve available data ...")
+
+        # def repair_set(dset_list, n_row_pts, msg):
+        #     """
+        #     Replaces corrupt rows (incorrect number of points) with closest 'good' row. This allows to load
+        #     and use data from corrupt scans. The function will have no effect on 'good' scans.
+        #     If there are no rows with correct number of points (unlikely case), then the array remains unchanged.
+        #     """
+        #     missed_rows = []
+        #     n_last_good_row = -1
+        #     for n in range(len(dset_list)):
+        #         d = dset_list[n]
+        #         n_pts = d.shape[0]
+        #         if n_pts != n_row_pts:
+        #             print(
+        #                 f"WARNING: ({msg}) Row #{n + 1} has {n_pts} data points. {n_row_pts} points are expected."
+        #             )
+        #             if n_last_good_row == -1:
+        #                 missed_rows.append(n)
+        #             else:
+        #                 dset_list[n] = np.array(dset_list[n_last_good_row])
+        #                 print(f"({msg}) Data in row #{n + 1} is replaced by data from row #{n_last_good_row}")
+        #         else:
+        #             n_last_good_row = n
+        #             if missed_rows:
+        #                 for nr in missed_rows:
+        #                     dset_list[nr] = np.array(dset_list[n_last_good_row])
+        #                     print(f"({msg}) Data in row #{nr + 1} is replaced by data from row #{n_last_good_row}")
+        #                 missed_rows = []
+
+        # sclr_name = list(sclr_dict.keys())
+
+        # repair_set(d_xs_sum, n_scan_fast, "XS_sum")
+        # repair_set(d_xs, n_scan_fast, "XS")
+        # repair_set(d_xs2_sum, n_scan_fast, "XS2_sum")
+        # repair_set(d_xs2, n_scan_fast, "XS2")
+        # repair_set(fast_pos, n_scan_fast, "fast pos")
+        # repair_set(slow_pos, n_scan_fast, "slow pos")
+        # for sc in sclr_dict.values():
+        #     repair_set(sc, n_scan_fast, "sclr")
+
+        # pos_pos = np.zeros((2, n_recorded_events, n_scan_fast))
+        # if "x" in slow_key:
+        #     pos_pos[1, :, :] = fast_pos
+        #     pos_pos[0, :, :] = slow_pos
+        # else:
+        #     pos_pos[0, :, :] = fast_pos
+        #     pos_pos[1, :, :] = slow_pos
+        # pos_name = ["x_pos", "y_pos"]
+
+        # if n_recorded_events != n_scan_slow:
+        #     logger.error(
+        #         "The number of recorded events (%d) is not equal to the expected number of events (%d): "
+        #         "The scan is incomplete.",
+        #         n_recorded_events,
+        #         n_scan_slow,
+        #     )
+
+        # # The following arrays may be empty if 'create_each_det == False' or the detector is not used.
+        # d_xs = np.asarray(d_xs)
+        # d_xs_sum = np.asarray(d_xs_sum)
+        # d_xs2 = np.asarray(d_xs2)
+        # d_xs2_sum = np.asarray(d_xs2_sum)
+
+        # sclr = np.zeros((n_recorded_events, n_scan_fast, len(sclr_name)))
+        # for n, sname in enumerate(sclr_name):
+        #     sclr[:, :, n] = np.asarray(sclr_dict[sname])
 
     # ===================================================================
     #                     NEW SRX STEP SCAN
@@ -2570,14 +2678,14 @@ def map_data2D_srx_new_tiled(
     if snaking_enabled:
         pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
         if "xs" in dets or "xs4" in dets:
-            if d_xs.size:
+            if d_xs is not None:
                 d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
-            if d_xs_sum.size:
+            if d_xs_sum is not None:
                 d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
         if "xs2" in dets:
-            if d_xs2.size:
+            if d_xs2 is not None:
                 d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
-            if d_xs2_sum.size:
+            if d_xs2_sum is not None:
                 d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
         sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
@@ -2585,18 +2693,18 @@ def map_data2D_srx_new_tiled(
         nonlocal pos_name, pos_pos, d_xs, d_xs_sum, d_xs2, d_xs2_sum, sclr
         # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
         pos_name = pos_name[::-1]
-        pos_pos = np.swapaxes(pos_pos, 1, 2)
+        pos_pos = da.swapaxes(pos_pos, 1, 2)
         if "xs" in dets or "xs4" in dets:
-            if d_xs.size:
-                d_xs = np.swapaxes(d_xs, 0, 1)
-            if d_xs_sum.size:
-                d_xs_sum = np.swapaxes(d_xs_sum, 0, 1)
+            if d_xs is not None:
+                d_xs = da.swapaxes(d_xs, 0, 1)
+            if d_xs_sum is not None:
+                d_xs_sum = da.swapaxes(d_xs_sum, 0, 1)
         if "xs2" in dets:
-            if d_xs2.size:
-                d_xs2 = np.swapaxes(d_xs2, 0, 1)
-            if d_xs2_sum.size:
-                d_xs2_sum = np.swapaxes(d_xs2_sum, 0, 1)
-        sclr = np.swapaxes(sclr, 0, 1)
+            if d_xs2 is not None:
+                d_xs2 = da.swapaxes(d_xs2, 0, 1)
+            if d_xs2_sum is not None:
+                d_xs2_sum = da.swapaxes(d_xs2_sum, 0, 1)
+        sclr = da.swapaxes(sclr, 0, 1)
 
     if scan_doc["type"] == "XRF_FLY":
         if fast_motor in ("nano_stage_sy", "nano_stage_y"):
@@ -2617,28 +2725,29 @@ def map_data2D_srx_new_tiled(
     print("Data is loaded successfully. Preparing to save data ...")
 
     data_output = []
-
-    for detector_name in dets:
-        if detector_name in ("xs", "xs4"):
-            tmp_data = d_xs
-            tmp_data_sum = d_xs_sum
+        
+    for tmp_data, tmp_data_sum in ((d_xs, d_xs_sum), (d_xs2, d_xs2_sum)):
+        if tmp_data_sum is None:
+            continue
+        
+        if tmp_data_sum is d_xs_sum:
+            detector_name = "xs4" if "xs4" in dets else "xs"
             num_det = N_xs
-        elif detector_name == "xs2":
-            tmp_data = d_xs2
-            tmp_data_sum = d_xs2_sum
+        else:
+            detector_name = "xs2"
             num_det = N_xs2
 
         loaded_data = {}
-        loaded_data["det_sum"] = tmp_data_sum
+        loaded_data["det_sum"] = tmp_data_sum.compute()
         if create_each_det:
             for i in range(num_det):
-                loaded_data["det" + str(i + 1)] = np.squeeze(tmp_data[:, :, i, :])
+                loaded_data["det" + str(i + 1)] = da.squeeze(tmp_data[:, :, i, :]).compute()
 
         if save_scaler:
-            loaded_data["scaler_data"] = sclr
-            loaded_data["scaler_names"] = sclr_name
+            loaded_data["scaler_data"] = sclr.compute()
+            loaded_data["scaler_names"] = sclr_names
 
-        loaded_data["pos_data"] = pos_pos
+        loaded_data["pos_data"] = pos_pos.compute()
         loaded_data["pos_names"] = pos_name
 
         # Generate the default file name for the scan
