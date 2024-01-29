@@ -1239,7 +1239,7 @@ def snip_method_numba(
             iter_num = _default_iter_num_bin
 
     # np.array(spectrum) is not supported by numba so we have to use this:
-    #background = np.asarray(spectrum).copy()  # Also a problem (since Jan. 2024)
+    # background = np.asarray(spectrum).copy()  # Also a problem (since Jan. 2024)
     background = spectrum.copy()
     n_background = background.size
 
