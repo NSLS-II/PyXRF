@@ -2361,7 +2361,7 @@ def map_data2D_srx_new_tiled(
             slow_pos =  da.transpose(da.broadcast_to(col_pos_slow, (fast_pts, slow_pts)))
 
         n_events, n_points = fast_pos.shape[0], fast_pos.shape[1]
-        pos_pos = da.zeros((2, n_events, n_points), dtype=np.float32)
+        pos_pos = da.zeros((2, n_events, n_points))
         if "x" in slow_key:
             pos_pos[1, :, :] = fast_pos
             pos_pos[0, :, :] = slow_pos
@@ -2371,7 +2371,7 @@ def map_data2D_srx_new_tiled(
         pos_name = ["x_pos", "y_pos"]
 
         sclr_names = list(sclr_dict.keys())
-        sclr = da.zeros((n_events, n_points, len(sclr_names)), dtype=np.float32)
+        sclr = da.zeros((n_events, n_points, len(sclr_names)))
         for n, sname in enumerate(sclr_names):
             print(f"n={n} sname={sname}")  ##
             sclr[:, :, n] = da.asarray(sclr_dict[sname])
