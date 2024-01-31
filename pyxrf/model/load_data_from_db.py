@@ -7,16 +7,17 @@ import math
 import multiprocessing
 import os
 import platform
+import pprint
 import re
 import time as ttime
 import warnings
 from distutils.version import LooseVersion
 
+import dask.array as da
 import h5py
 import numpy as np
 import pandas as pd
 from event_model import Filler
-import dask.array as da
 
 try:
     import databroker
@@ -26,6 +27,7 @@ except ImportError:
 import pyxrf
 
 from ..core.utils import convert_time_to_nexus_string
+from .catalog_management import catalog_info, get_catalog
 from .scan_metadata import ScanMetadataXRF
 
 pyxrf_version = pyxrf.__version__
@@ -35,55 +37,48 @@ warnings.filterwarnings("ignore")
 
 sep_v = os.sep
 
-
-def get_catalog(catalog_name):
-    from tiled.client import from_uri
-    c = from_uri('https://tiled.nsls2.bnl.gov')
-    return c[catalog_name.lower()]['raw']
-
-
 try:
-    catalog_name = None
+    logger.info(f"Opening catalog: {catalog_info.name!r}")
+    if not catalog_info.name:
+        # Attempt to find the configuration file first
+        config_path = "/etc/pyxrf/pyxrf.json"
+        if os.path.isfile(config_path):
+            try:
+                with open(config_path, "r") as beamline_pyxrf:
+                    beamline_config_pyxrf = json.load(beamline_pyxrf)
+                    catalog_info.set_name(beamline_config_pyxrf["beamline_name"])
+            except Exception as ex:
+                raise IOError(f"Error while opening configuration file {config_path!r}") from ex
 
-    # Attempt to find the configuration file first
-    config_path = "/etc/pyxrf/pyxrf.json"
-    if os.path.isfile(config_path):
-        try:
-            with open(config_path, "r") as beamline_pyxrf:
-                beamline_config_pyxrf = json.load(beamline_pyxrf)
-                catalog_name = beamline_config_pyxrf["beamline_name"]
-        except Exception as ex:
-            raise IOError(f"Error while opening configuration file {config_path!r}") from ex
+        else:
+            # Otherwise try to identify the beamline using host name
+            hostname = platform.node()
+            catalog_names = {
+                "xf03id": "HXN",
+                "xf05id": "SRX",
+                "xf08bm": "TES",
+                "xf04bm": "XFM",
+            }
 
-    else:
-        # Otherwise try to identify the beamline using host name
-        hostname = platform.node()
-        catalog_names = {
-            "xf03id": "HXN",
-            "xf05id": "SRX",
-            "xf08bm": "TES",
-            "xf04bm": "XFM",
-        }
+            for k, v in catalog_names.items():
+                if hostname.startswith(k):
+                    catalog_info.set_name(v)
 
-        for k, v in catalog_names.items():
-            if hostname.startswith(k):
-                catalog_name = v
-
-    if catalog_name is None:
+    if not catalog_info.name:
         raise Exception("Beamline is not identified")
 
-    if catalog_name.upper() == "HXN":
+    if catalog_info.name.upper() == "HXN":
         from pyxrf.db_config.hxn_db_config import db
-    elif catalog_name.upper() == "SRX":
-        db = get_catalog('srx')
-    elif catalog_name.upper() == "XFM":
+    elif catalog_info.name.upper() == "SRX":
+        db = get_catalog("srx")
+    elif catalog_info.name.upper() == "XFM":
         from pyxrf.db_config.xfm_db_config import db
-    elif catalog_name.upper() == "TES":
+    elif catalog_info.name.upper() == "TES":
         from pyxrf.db_config.tes_db_config import db
     else:
         db = None
         db_analysis = None
-        print(f"Beamline Database is not used in pyxrf: unknown catalog {catalog_name!r}")
+        print(f"Beamline Database is not used in pyxrf: unknown catalog {catalog_info.name!r}")
 
 except Exception as ex:
     db = None
@@ -153,7 +148,6 @@ def fetch_run_info(run_id_uid, catalog_name=None):
         failed to fetch the run from Databroker
     """
     try:
-
         if catalog_name:
             catalog = get_catalog(catalog_name)
         else:
@@ -233,7 +227,7 @@ def fetch_data_from_db(
     skip_scan_types: list(str) or None
         list of plan type names to ignore, e.g. ['FlyPlan1D']. (Supported only at HXN.)
     catalog_name: str or None
-        
+
     Returns
     -------
     dict of data in 2D format matching x,y scanning positions
@@ -1082,7 +1076,7 @@ def map_data2D_srx(
     num_end_lines_excluded : int, optional
         remove the last few bad lines
     catalog
-        reference to databroker catalog 
+        reference to databroker catalog
 
     Returns
     -------
@@ -2218,10 +2212,10 @@ def map_data2D_srx_new_tiled(
     hdr = catalog[run_id_uid]
     start_doc = hdr.start
     runid = start_doc["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
+    md_version = start_doc["md_version"]
 
-    print("**********************************************************")
-    print(f"Loading scan #{runid}")
-    print(f"Scan metadata format: version {start_doc['md_version']}")
+    logger.info("Loading scan %r", runid)
+    logger.info("Metadata version: %r", md_version)
 
     if completed_scans_only and not _is_scan_complete(hdr):
         raise Exception("Scan is incomplete. Only completed scans are currently processed.")
@@ -2230,12 +2224,10 @@ def map_data2D_srx_new_tiled(
             "Scan is not successfully completed. Only successfully completed scans are currently processed."
         )
 
-    md_version = start_doc["md_version"]
     scan_doc = start_doc["scan"]
     stop_doc = hdr.stop
 
-    import pprint  ##
-    print(f"=== start_doc={pprint.pformat(start_doc)}")  ##
+    logger.info("Start document:\n%s", pprint.pformat(start_doc))
 
     # The following scan parameters are used to compute positions for some motors.
     #   (Positions of course stages are not saved during the scan)
@@ -2356,9 +2348,9 @@ def map_data2D_srx_new_tiled(
             fast_pos = da.broadcast_to(row_pos_fast, (slow_pts, fast_pts))
             if snaking_enabled:
                 rows_to_flip = list(range(1, 2, slow_pts))  # Flip 'even' rows (numbers are 0-based)
-                fast_pos[rows_to_flip, :] = da.fliplr(fast_pos[rows_to_flip, :]) 
+                fast_pos[rows_to_flip, :] = da.fliplr(fast_pos[rows_to_flip, :])
             col_pos_slow = da.arange(slow_pts) * slow_step + slow_start
-            slow_pos =  da.transpose(da.broadcast_to(col_pos_slow, (fast_pts, slow_pts)))
+            slow_pos = da.transpose(da.broadcast_to(col_pos_slow, (fast_pts, slow_pts)))
 
         n_events, n_points = fast_pos.shape[0], fast_pos.shape[1]
         pos_pos = da.zeros((2, n_events, n_points))
@@ -2373,13 +2365,14 @@ def map_data2D_srx_new_tiled(
         sclr_names = list(sclr_dict.keys())
         sclr = da.zeros((n_events, n_points, len(sclr_names)))
         for n, sname in enumerate(sclr_names):
-            print(f"n={n} sname={sname}")  ##
             sclr[:, :, n] = da.asarray(sclr_dict[sname])
 
     # ===================================================================
     #                     NEW SRX STEP SCAN
     # ===================================================================
     if scan_doc["type"] == "XRF_STEP":
+        data_primary = hdr.primary["data"]
+
         # Define keys for motor data
         fast_motor = scan_doc["fast_axis"]["motor_name"]
         fast_key = fast_motor + "_user_setpoint"
@@ -2387,29 +2380,21 @@ def map_data2D_srx_new_tiled(
         slow_key = slow_motor + "_user_setpoint"
 
         # Collect motor positions
-        fast_pos = hdr.data(fast_key, stream_name="primary", fill=True)
-        fast_pos = np.array(list(fast_pos))
-        slow_pos = hdr.data(slow_key, stream_name="primary", fill=True)
-        slow_pos = np.array(list(slow_pos))
+        fast_pos = data_primary[fast_key]
+        slow_pos = data_primary[fast_key]
 
         # Reshape motor positions
         num_events = stop_doc["num_events"]["primary"]
-        n_scan_slow, n_scan_fast = scan_doc["shape"]
-        if num_events != (n_scan_slow * n_scan_fast):
-            num_rows = num_events // n_scan_fast + 1  # number of rows
-            fast_pos = np.zeros((num_rows, n_scan_fast))
-            slow_pos = np.zeros((num_rows, n_scan_fast))
-            for i in range(num_rows):
-                for j in range(n_scan_fast):
-                    fast_pos[i, j] = fast_pos[i * n_scan_fast + j]
-                    slow_pos[i, j] = slow_pos[i * n_scan_fast + j]
-        else:
-            num_rows = n_scan_slow
-            fast_pos = np.reshape(fast_pos, (n_scan_slow, n_scan_fast))
-            slow_pos = np.reshape(slow_pos, (n_scan_slow, n_scan_fast))
+        _, n_scan_fast = scan_doc["shape"]
+        num_rows = len(fast_pos) / n_scan_fast
+        n_scan_total = n_scan_fast * num_rows
+        fast_pos = fast_pos[:, n_scan_total]
+        slow_pos = slow_pos[:, n_scan_total]
+        fast_pos = da.reshape(fast_pos, (n_scan_slow, n_scan_fast))
+        slow_pos = da.reshape(slow_pos, (n_scan_slow, n_scan_fast))
 
         # Put into one array for h5 file
-        pos_pos = np.zeros((2, num_rows, n_scan_fast))
+        pos_pos = da.zeros((2, num_rows, n_scan_fast))
         if "x" in slow_key:
             pos_pos[1, :, :] = fast_pos
             pos_pos[0, :, :] = slow_pos
@@ -2419,8 +2404,9 @@ def map_data2D_srx_new_tiled(
         pos_name = ["x_pos", "y_pos"]
 
         # Get detector data
-        keys = hdr.table().keys()
+        keys = list(data_primary)
         MAX_DET_ELEMENTS = 8
+        # !!!!!! The following code for stepscan needs to be revised (still the old code)
         N_xs, det_name_prefix, ndigits = None, None, 1
         for i in np.arange(1, MAX_DET_ELEMENTS + 1):
             if f"xs_channel{i}" in keys:
@@ -2526,11 +2512,11 @@ def map_data2D_srx_new_tiled(
     print("Data is loaded successfully. Preparing to save data ...")
 
     data_output = []
-        
+
     for tmp_data, tmp_data_sum in ((d_xs, d_xs_sum), (d_xs2, d_xs2_sum)):
         if tmp_data_sum is None:
             continue
-        
+
         if tmp_data_sum is d_xs_sum:
             detector_name = "xs4" if "xs4" in dets else "xs"
             num_det = N_xs
@@ -2805,7 +2791,6 @@ def map_data2D_tes(
     m, n_pt_max, missing_rows = 0, -1, []  # m - index
     try:
         while True:
-            print("1") ##
             try:
                 while True:
                     name, doc = next(docs_primary)
@@ -2819,10 +2804,8 @@ def map_data2D_tes(
             except StopIteration:
                 break  # All events are processed, exit the loop
 
-            print("2") ##
             if is_filled:
                 data = doc["data"][detector_field]
-                print(f"data={data}")  ##
                 data_det1 = np.array(data[:, 0, :], dtype=np.float32)
 
                 # The following is the fix for the case when data has corrupt row (smaller number of data points).
@@ -3659,7 +3642,11 @@ def free_memory_from_handler():
     """
     # The following check is redundant: Data Broker prior to version 1.0.0 always has '_handler_cache'.
     #   In later versions of databroker the attribute may still be present if 'databroker.v0' is used.
-    if (LooseVersion(databroker.__version__) < LooseVersion("1.0.0")) or hasattr(db, "fs") and hasattr(db.fs, "_handler_cache"):
+    if (
+        (LooseVersion(databroker.__version__) < LooseVersion("1.0.0"))
+        or hasattr(db, "fs")
+        and hasattr(db.fs, "_handler_cache")
+    ):
         for h in db.fs._handler_cache.values():
             setattr(h, "_dataset", None)
         print("Memory is released (Databroker v0).")
