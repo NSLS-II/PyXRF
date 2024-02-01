@@ -2524,15 +2524,21 @@ def map_data2D_srx_new_tiled(
             detector_name = "xs2"
             num_det = N_xs2
 
+        # Replace NaNs with 0s (in corrupt data rows).
         loaded_data = {}
-        loaded_data["det_sum"] = tmp_data_sum.compute()
+        loaded_data["det_sum"] = np.nan_to_num(tmp_data_sum.compute())
         if create_each_det:
             for i in range(num_det):
-                loaded_data["det" + str(i + 1)] = da.squeeze(tmp_data[:, :, i, :]).compute()
+                loaded_data["det" + str(i + 1)] = np.nan_to_num(da.squeeze(tmp_data[:, :, i, :]).compute())
 
         if save_scaler:
             loaded_data["scaler_data"] = sclr.compute()
             loaded_data["scaler_names"] = sclr_names
+
+            # Replace NaNs for each scaler with median values
+            for n in range(loaded_data["scaler_data"].shape[-1]):
+                d = loaded_data["scaler_data"][:, :, n]
+                loaded_data["scaler_data"][:, :, n] = np.nan_to_num(d, nan=np.nanmedian(d))
 
         loaded_data["pos_data"] = pos_pos.compute()
         loaded_data["pos_names"] = pos_name
