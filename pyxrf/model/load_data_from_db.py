@@ -70,7 +70,15 @@ try:
     if catalog_info.name.upper() == "HXN":
         from pyxrf.db_config.hxn_db_config import db
     elif catalog_info.name.upper() == "SRX":
-        db = get_catalog("srx")
+        _failed = False
+        try:
+            db = get_catalog("srx")
+        except Exception as ex:
+            logger.error("Failed to load Tiled catalog: %s", str(ex))
+            _failed = True
+        if _failed:
+            logger.info("Attempting to open databroker ...")
+            from pyxrf.db_config.srx_db_config import db
     elif catalog_info.name.upper() == "XFM":
         from pyxrf.db_config.xfm_db_config import db
     elif catalog_info.name.upper() == "TES":
@@ -1840,7 +1848,8 @@ def map_data2D_srx_new(
 
                 v, vp = doc, doc_p
                 if "xs" in dets or "xs4" in dets:
-                    event_data = data_or_empty_array(v["data"]["fluor"])
+                    k = "xs_fluor" if "xs_fluor" in v["data"] else "fluor"
+                    event_data = data_or_empty_array(v["data"][k])
                     if event_data.size:
                         event_data = np.asarray(event_data, dtype=np.float32)
                         N_xs = max(N_xs, event_data.shape[1])
@@ -1854,7 +1863,8 @@ def map_data2D_srx_new(
                             d_xs.append(event_data)
 
                 if "xs2" in dets:
-                    event_data = data_or_empty_array(v["data"]["fluor_xs2"])
+                    k = "xs_fluor_xs2" if "xs_fluor_xs2" in v["data"] else "fluor_xs2"
+                    event_data = data_or_empty_array(v["data"][k])
                     if event_data.size:
                         event_data = np.asarray(event_data, dtype=np.float32)
                         N_xs2 = max(N_xs2, event_data.shape[1])
