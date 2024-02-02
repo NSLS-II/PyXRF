@@ -17,6 +17,7 @@ def get_catalog(catalog_name):
     from packaging import version
     import databroker
     db_version_major = version.parse(databroker.__version__).major == 1
+    print(f"Databroker major version: {db_version_major}")
     if db_version_major == 1:
         raise ValueError("Non-tiled version of Databroker is installed")
     
