@@ -16,7 +16,8 @@ catalog_info = CatalogInfo()
 def get_catalog(catalog_name):
     from packaging import version
     import databroker
-    if version.parse(databroker.__version__).major == 1:
+    db_version_major = version.parse(databroker.__version__).major == 1
+    if db_version_major == 1:
         raise ValueError("Non-tiled version of Databroker is installed")
     
     from tiled.client import from_uri
