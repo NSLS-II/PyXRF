@@ -7,11 +7,13 @@ import math
 import multiprocessing
 import os
 import platform
+import pprint
 import re
 import time as ttime
 import warnings
 from distutils.version import LooseVersion
 
+import dask.array as da
 import h5py
 import numpy as np
 import pandas as pd
@@ -25,6 +27,7 @@ except ImportError:
 import pyxrf
 
 from ..core.utils import convert_time_to_nexus_string
+from .catalog_management import catalog_info, get_catalog
 from .scan_metadata import ScanMetadataXRF
 
 pyxrf_version = pyxrf.__version__
@@ -35,47 +38,55 @@ warnings.filterwarnings("ignore")
 sep_v = os.sep
 
 try:
-    beamline_name = None
+    logger.info(f"Opening catalog: {catalog_info.name!r}")
+    if not catalog_info.name:
+        # Attempt to find the configuration file first
+        config_path = "/etc/pyxrf/pyxrf.json"
+        if os.path.isfile(config_path):
+            try:
+                with open(config_path, "r") as beamline_pyxrf:
+                    beamline_config_pyxrf = json.load(beamline_pyxrf)
+                    catalog_info.set_name(beamline_config_pyxrf["beamline_name"])
+            except Exception as ex:
+                raise IOError(f"Error while opening configuration file {config_path!r}") from ex
 
-    # Attempt to find the configuration file first
-    config_path = "/etc/pyxrf/pyxrf.json"
-    if os.path.isfile(config_path):
-        try:
-            with open(config_path, "r") as beamline_pyxrf:
-                beamline_config_pyxrf = json.load(beamline_pyxrf)
-                beamline_name = beamline_config_pyxrf["beamline_name"]
-        except Exception as ex:
-            raise IOError(f"Error while opening configuration file {config_path!r}") from ex
+        else:
+            # Otherwise try to identify the beamline using host name
+            hostname = platform.node()
+            catalog_names = {
+                "xf03id": "HXN",
+                "xf05id": "SRX",
+                "xf08bm": "TES",
+                "xf04bm": "XFM",
+            }
 
-    else:
-        # Otherwise try to identify the beamline using host name
-        hostname = platform.node()
-        beamline_names = {
-            "xf03id": "HXN",
-            "xf05id": "SRX",
-            "xf08bm": "TES",
-            "xf04bm": "XFM",
-        }
+            for k, v in catalog_names.items():
+                if hostname.startswith(k):
+                    catalog_info.set_name(v)
 
-        for k, v in beamline_names.items():
-            if hostname.startswith(k):
-                beamline_name = v
-
-    if beamline_name is None:
+    if not catalog_info.name:
         raise Exception("Beamline is not identified")
 
-    if beamline_name == "HXN":
+    if catalog_info.name.upper() == "HXN":
         from pyxrf.db_config.hxn_db_config import db
-    elif beamline_name == "SRX":
-        from pyxrf.db_config.srx_db_config import db
-    elif beamline_name == "XFM":
+    elif catalog_info.name.upper() == "SRX":
+        _failed = False
+        try:
+            db = get_catalog("srx")
+        except Exception as ex:
+            logger.error("Failed to load Tiled catalog: %s", str(ex))
+            _failed = True
+        if _failed:
+            logger.info("Attempting to open databroker ...")
+            from pyxrf.db_config.srx_db_config import db
+    elif catalog_info.name.upper() == "XFM":
         from pyxrf.db_config.xfm_db_config import db
-    elif beamline_name == "TES":
+    elif catalog_info.name.upper() == "TES":
         from pyxrf.db_config.tes_db_config import db
     else:
         db = None
         db_analysis = None
-        print(f"Beamline Database is not used in pyxrf: unknown beamline {beamline_name!r}")
+        print(f"Beamline Database is not used in pyxrf: unknown catalog {catalog_info.name!r}")
 
 except Exception as ex:
     db = None
@@ -121,7 +132,7 @@ def flip_data(input_data, subscan_dims=None):
     return new_data
 
 
-def fetch_run_info(run_id_uid):
+def fetch_run_info(run_id_uid, catalog_name=None):
     """
     Fetches key data from start document of the selected run
 
@@ -129,6 +140,9 @@ def fetch_run_info(run_id_uid):
     ----------
     run_id_uid: int or str
         Run ID (positive or negative int) or UID (str, full or short) of the run.
+    catalog_name: str or None
+        Name of the catalog (e.g. `"srx"`). The function attempts to determine the catalog
+        name automatically if the parameter is not specified or `None`.
 
     Returns
     -------
@@ -142,7 +156,13 @@ def fetch_run_info(run_id_uid):
         failed to fetch the run from Databroker
     """
     try:
-        hdr = db[run_id_uid]
+        if catalog_name:
+            catalog = get_catalog(catalog_name)
+        else:
+            catalog = db
+        hdr = catalog[run_id_uid]
+
+        hdr = catalog[run_id_uid]
         run_id = hdr.start["scan_id"]
         run_uid = hdr.start["uid"]
     except Exception:
@@ -166,6 +186,7 @@ def fetch_data_from_db(
     save_scaler=True,
     num_end_lines_excluded=None,
     skip_scan_types=None,
+    catalog_name=None,
 ):
     """
     Read data from databroker.
@@ -213,15 +234,21 @@ def fetch_data_from_db(
         remove the last few bad lines
     skip_scan_types: list(str) or None
         list of plan type names to ignore, e.g. ['FlyPlan1D']. (Supported only at HXN.)
+    catalog_name: str or None
 
     Returns
     -------
     dict of data in 2D format matching x,y scanning positions
     """
-    hdr = db[-1]
+    if catalog_name:
+        catalog = get_catalog(catalog_name)
+    else:
+        catalog = db
+    hdr = catalog[run_id_uid]
+    beamline_id = hdr.start["beamline_id"]
     print("Loading data from database.")
 
-    if hdr.start.beamline_id == "HXN":
+    if beamline_id == "HXN":
         data = map_data2D_hxn(
             run_id_uid,
             fpath,
@@ -233,7 +260,7 @@ def fetch_data_from_db(
             output_to_file=output_to_file,
             skip_scan_types=skip_scan_types,
         )
-    elif hdr.start.beamline_id == "xf05id" or hdr.start.beamline_id == "SRX":
+    elif beamline_id == "xf05id" or beamline_id == "SRX":
         data = map_data2D_srx(
             run_id_uid,
             fpath,
@@ -245,8 +272,9 @@ def fetch_data_from_db(
             output_to_file=output_to_file,
             save_scaler=save_scaler,
             num_end_lines_excluded=num_end_lines_excluded,
+            catalog=catalog,
         )
-    elif hdr.start.beamline_id == "XFM":
+    elif beamline_id == "XFM":
         data = map_data2D_xfm(
             run_id_uid,
             fpath,
@@ -257,7 +285,7 @@ def fetch_data_from_db(
             file_overwrite_existing=file_overwrite_existing,
             output_to_file=output_to_file,
         )
-    elif hdr.start.beamline_id == "TES":
+    elif beamline_id == "TES":
         data = map_data2D_tes(
             run_id_uid,
             fpath,
@@ -290,6 +318,7 @@ def make_hdf(
     save_scaler=True,
     num_end_lines_excluded=None,
     skip_scan_types=None,
+    catalog_name=None,
 ):
     """
     Load data from database and save it in HDF5 files.
@@ -402,6 +431,9 @@ def make_hdf(
         The list of plan types (e.g. ['FlyPlan1D']) that should cause the loader to raise
         an exception. The parameter is used to allow scripts to ignore certain plan types
         when downloading data using ranges of scans IDs. (Supported only at HXN.)
+    catalog_name: str or None
+        Name of the catalog (e.g. `"srx"`). The function attempts to determine the catalog
+        name automatically if the parameter is not specified or `None`.
     """
 
     if wd:
@@ -416,7 +448,7 @@ def make_hdf(
         if end is not None:
             raise ValueError(r"Parameter 'end' must be None if run is loaded by UID")
 
-        run_id, run_uid = fetch_run_info(start)  # This may raise RuntimeException
+        run_id, run_uid = fetch_run_info(start, catalog_name)  # This may raise RuntimeException
 
         # Load one scan with ID specified by ``start``
         #   If there is a problem while reading the scan, the exception is raised.
@@ -436,6 +468,7 @@ def make_hdf(
             save_scaler=save_scaler,
             num_end_lines_excluded=num_end_lines_excluded,
             skip_scan_types=skip_scan_types,
+            catalog_name=catalog_name,
         )
     else:
         # Both ``start`` and ``end`` are specified. Convert the scans in the range
@@ -459,6 +492,7 @@ def make_hdf(
                     save_scaler=save_scaler,
                     num_end_lines_excluded=num_end_lines_excluded,
                     skip_scan_types=skip_scan_types,
+                    catalog_name=catalog_name,
                 )
                 print(f"Scan #{v}: Conversion completed.\n")
             except Exception as ex:
@@ -644,6 +678,34 @@ def _get_metadata_all_from_descriptor_document(hdr, *, data_key, stream_name="ba
     value = value or None  # Replace [] with None
 
     return value
+
+
+def _get_metadata_value_from_descriptor_document_tiled(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the first occurrence of the variable with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
+    value = None
+    try:
+        value = list(hdr[stream_name][data_key])[0]
+    except Exception:
+        pass
+
+    return value
+
+
+def _get_metadata_all_from_descriptor_document_tiled(hdr, *, data_key, stream_name="baseline"):
+    """
+    Returns the list of the recorded values of variables with the name ``data_key`` in
+    specified document stream. Returns ``None`` if the variable is not found
+    """
+    value = []
+    try:
+        value = list(hdr[stream_name][data_key])
+    except Exception:
+        pass
+
+    return value or None  # Replace [] with None
 
 
 def map_data2D_hxn(
@@ -976,6 +1038,7 @@ def map_data2D_srx(
     output_to_file=True,
     save_scaler=True,
     num_end_lines_excluded=None,
+    catalog=None,
 ):
     """
     Transfer the data from databroker into a correct format following the
@@ -1020,16 +1083,38 @@ def map_data2D_srx(
         choose to save scaler data or not for srx beamline, test purpose only.
     num_end_lines_excluded : int, optional
         remove the last few bad lines
+    catalog
+        reference to databroker catalog
 
     Returns
     -------
     dict of data in 2D format matching x,y scanning positions
     """
-    hdr = db[run_id_uid]
-    start_doc = hdr["start"]
+    catalog = catalog or db
+
+    using_tiled = "CatalogOfBlueskyRuns" in str(type(catalog))
+
+    hdr = catalog[run_id_uid]
+    start_doc = hdr.start
     use_new_format = "md_version" in start_doc
 
-    if use_new_format:
+    if using_tiled and use_new_format:
+        return map_data2D_srx_new_tiled(
+            run_id_uid=run_id_uid,
+            fpath=fpath,
+            create_each_det=create_each_det,
+            fname_add_version=fname_add_version,
+            completed_scans_only=completed_scans_only,
+            successful_scans_only=successful_scans_only,
+            file_overwrite_existing=file_overwrite_existing,
+            output_to_file=output_to_file,
+            save_scaler=save_scaler,
+            num_end_lines_excluded=num_end_lines_excluded,
+            catalog=catalog,
+        )
+    elif using_tiled and not use_new_format:
+        raise Exception("Loading data in 'Old' format using Tiled is not yet supported ...")
+    elif use_new_format:
         return map_data2D_srx_new(
             run_id_uid=run_id_uid,
             fpath=fpath,
@@ -1763,7 +1848,8 @@ def map_data2D_srx_new(
 
                 v, vp = doc, doc_p
                 if "xs" in dets or "xs4" in dets:
-                    event_data = data_or_empty_array(v["data"]["fluor"])
+                    k = "xs_fluor" if "xs_fluor" in v["data"] else "fluor"
+                    event_data = data_or_empty_array(v["data"][k])
                     if event_data.size:
                         event_data = np.asarray(event_data, dtype=np.float32)
                         N_xs = max(N_xs, event_data.shape[1])
@@ -1777,7 +1863,8 @@ def map_data2D_srx_new(
                             d_xs.append(event_data)
 
                 if "xs2" in dets:
-                    event_data = data_or_empty_array(v["data"]["fluor_xs2"])
+                    k = "xs_fluor_xs2" if "xs_fluor_xs2" in v["data"] else "fluor_xs2"
+                    event_data = data_or_empty_array(v["data"][k])
                     if event_data.size:
                         event_data = np.asarray(event_data, dtype=np.float32)
                         N_xs2 = max(N_xs2, event_data.shape[1])
@@ -2112,6 +2199,395 @@ def map_data2D_srx_new(
     return data_output
 
 
+def map_data2D_srx_new_tiled(
+    run_id_uid,
+    fpath,
+    create_each_det=False,
+    fname_add_version=False,
+    completed_scans_only=False,
+    successful_scans_only=False,
+    file_overwrite_existing=False,
+    output_to_file=True,
+    save_scaler=True,
+    num_end_lines_excluded=None,
+    catalog=None,
+):
+    if num_end_lines_excluded:
+        logger.warning(
+            "The data loading function for new SRX format does not support the parameter "
+            "'num_end_lines_excluded' ({num_end_lines_excluded}). All available data will "
+            "be included in the output file."
+        )
+
+    hdr = catalog[run_id_uid]
+    start_doc = hdr.start
+    runid = start_doc["scan_id"]  # Replace with the true value (runid may be relative, such as -2)
+    md_version = start_doc["md_version"]
+
+    logger.info("Loading scan %r", runid)
+    logger.info("Metadata version: %r", md_version)
+
+    if completed_scans_only and not _is_scan_complete(hdr):
+        raise Exception("Scan is incomplete. Only completed scans are currently processed.")
+    if successful_scans_only and not _is_scan_successful(hdr):
+        raise Exception(
+            "Scan is not successfully completed. Only successfully completed scans are currently processed."
+        )
+
+    scan_doc = start_doc["scan"]
+    stop_doc = hdr.stop
+
+    logger.info("Start document:\n%s", pprint.pformat(start_doc))
+
+    # The following scan parameters are used to compute positions for some motors.
+    #   (Positions of course stages are not saved during the scan)
+    fast_start, fast_stop, fast_pts, slow_start, slow_stop, slow_pts = scan_doc["scan_input"][:6]
+    fast_step = (fast_stop - fast_start) / fast_pts
+    slow_step = (slow_stop - slow_start) / slow_pts
+
+    snaking_enabled = bool(scan_doc["snake"])
+
+    print(f"Scan type: {scan_doc['type']}")
+
+    # Check for detectors
+    dets = []
+    try:
+        md_dets = hdr.start["scan"]["detectors"]
+        for d in md_dets:
+            if d in ("xs", "xs2", "xs4"):
+                dets.append(d)
+    except KeyError:
+        # AMK forgot to add detectors to step scans
+        # This is fixed, but left in for those scans
+        if scan_doc["type"] == "XRF_STEP":
+            dets.append("xs")
+
+    if not (dets):
+        raise IOError("No detectors found!")
+
+    # Get metadata
+    mdata = _extract_metadata_from_header(hdr)
+
+    v = _get_metadata_value_from_descriptor_document_tiled(hdr, data_key="ring_current", stream_name="baseline")
+    if v is not None:
+        mdata["instrument_beam_current"] = v
+
+    for ax in ["X", "Y", "Z"]:
+        v = _get_metadata_all_from_descriptor_document_tiled(
+            hdr, data_key=f"nanoKB_interferometer_pos{ax}", stream_name="baseline"
+        )
+        if v is not None:
+            mdata[f"param_interferometer_pos{ax}"] = v
+
+    # Get position data from scan
+    n_scan_fast, n_scan_slow = hdr.start["scan"]["shape"]
+    n_scan_fast, n_scan_slow = int(n_scan_fast), int(n_scan_slow)
+
+    # ===================================================================
+    #                     NEW SRX FLY SCAN
+    # ===================================================================
+    stages_no_data = ("nano_stage_x", "nano_stage_y", "nano_stage_z", "nano_stage_topx", "nano_stage_topz")
+
+    if scan_doc["type"] == "XRF_FLY":
+        fast_motor = scan_doc["fast_axis"]["motor_name"]
+        if fast_motor == "nano_stage_sx":
+            fast_key = "enc1"
+        elif fast_motor == "nano_stage_sy":
+            fast_key = "enc2"
+        elif fast_motor == "nano_stage_sz":
+            fast_key = "enc3"
+        elif fast_motor in stages_no_data:
+            fast_key = "fast_gen"  # No positions are saved. Generate positions based on scan parameters.
+        else:
+            raise IOError(f"{fast_motor} not found!")
+
+        slow_motor = scan_doc["slow_axis"]["motor_name"]
+        if slow_motor == "nano_stage_sx":
+            slow_key = "enc1"
+        elif slow_motor == "nano_stage_sy":
+            slow_key = "enc2"
+        elif slow_motor == "nano_stage_sz":
+            slow_key = "enc3"
+        elif slow_motor in stages_no_data:
+            slow_key = "slow_gen"  # No positions are saved. Generate positions based on scan parameters.
+        else:
+            slow_key = slow_motor
+
+        # data_primary = hdr.primary["data"]
+        data_stream0 = hdr.stream0["data"]
+
+        d_xs, d_xs_sum, N_xs, d_xs2, d_xs2_sum, N_xs2 = None, None, 0, None, None, 0
+        if "xs_fluor" in data_stream0:
+            d_xs = data_stream0["xs_fluor"]
+            d_xs_sum = da.sum(d_xs, 2)
+            N_xs = d_xs.shape[2]
+        elif "fluor" in data_stream0:  # Old format
+            d_xs = data_stream0["fluor"]
+            d_xs_sum = da.sum(d_xs, 2)
+            N_xs = d_xs.shape[2]
+
+        if "xs_fluor_xs2" in data_stream0:
+            d_xs2 = data_stream0["xs_fluor_xs2"]
+            d_xs2_sum = da.sum(d_xs2, 2)
+            N_xs2 = d_xs2.shape[2]
+        elif "fluor_xs2" in data_stream0:  # Old format
+            d_xs2 = data_stream0["fluor_xs2"]
+            d_xs2_sum = da.sum(d_xs2, 2)
+            N_xs2 = d_xs2.shape[2]
+
+        if not create_each_det:
+            d_xs, d_xs2 = None, None
+
+        if d_xs_sum is None and d_xs2_sum is None:
+            raise ValueError(f"No fluorescence data is found for the experiment {run_id_uid!r}")
+
+        sclr_list = ["i0", "i0_time", "im", "it"]
+        sclr_dict = dict()
+        for k in sclr_list:
+            if k in data_stream0:
+                if k not in sclr_dict:
+                    sclr_dict[k] = [data_stream0[k]]
+                else:
+                    sclr_dict[k].append(data_stream0[k])
+
+        if fast_key != "fast_gen":
+            fast_pos = data_stream0[fast_key]
+            slow_pos = data_stream0[slow_key]
+        else:
+            row_pos_fast = da.arange(fast_pts) * fast_step + fast_start
+            fast_pos = da.broadcast_to(row_pos_fast, (slow_pts, fast_pts))
+            if snaking_enabled:
+                rows_to_flip = list(range(1, 2, slow_pts))  # Flip 'even' rows (numbers are 0-based)
+                fast_pos[rows_to_flip, :] = da.fliplr(fast_pos[rows_to_flip, :])
+            col_pos_slow = da.arange(slow_pts) * slow_step + slow_start
+            slow_pos = da.transpose(da.broadcast_to(col_pos_slow, (fast_pts, slow_pts)))
+
+        n_events, n_points = fast_pos.shape[0], fast_pos.shape[1]
+        pos_pos = da.zeros((2, n_events, n_points))
+        if "x" in slow_key:
+            pos_pos[1, :, :] = fast_pos
+            pos_pos[0, :, :] = slow_pos
+        else:
+            pos_pos[0, :, :] = fast_pos
+            pos_pos[1, :, :] = slow_pos
+        pos_name = ["x_pos", "y_pos"]
+
+        sclr_names = list(sclr_dict.keys())
+        sclr = da.zeros((n_events, n_points, len(sclr_names)))
+        for n, sname in enumerate(sclr_names):
+            sclr[:, :, n] = da.asarray(sclr_dict[sname])
+
+    # ===================================================================
+    #                     NEW SRX STEP SCAN
+    # ===================================================================
+    if scan_doc["type"] == "XRF_STEP":
+        data_primary = hdr.primary["data"]
+
+        # Define keys for motor data
+        fast_motor = scan_doc["fast_axis"]["motor_name"]
+        fast_key = fast_motor + "_user_setpoint"
+        slow_motor = scan_doc["slow_axis"]["motor_name"]
+        slow_key = slow_motor + "_user_setpoint"
+
+        # Collect motor positions
+        fast_pos = data_primary[fast_key]
+        slow_pos = data_primary[fast_key]
+
+        # Reshape motor positions
+        num_events = stop_doc["num_events"]["primary"]
+        _, n_scan_fast = scan_doc["shape"]
+        num_rows = len(fast_pos) / n_scan_fast
+        n_scan_total = n_scan_fast * num_rows
+        fast_pos = fast_pos[:, n_scan_total]
+        slow_pos = slow_pos[:, n_scan_total]
+        fast_pos = da.reshape(fast_pos, (n_scan_slow, n_scan_fast))
+        slow_pos = da.reshape(slow_pos, (n_scan_slow, n_scan_fast))
+
+        # Put into one array for h5 file
+        pos_pos = da.zeros((2, num_rows, n_scan_fast))
+        if "x" in slow_key:
+            pos_pos[1, :, :] = fast_pos
+            pos_pos[0, :, :] = slow_pos
+        else:
+            pos_pos[0, :, :] = fast_pos
+            pos_pos[1, :, :] = slow_pos
+        pos_name = ["x_pos", "y_pos"]
+
+        # Get detector data
+        keys = list(data_primary)
+        MAX_DET_ELEMENTS = 8
+        # !!!!!! The following code for stepscan needs to be revised (still the old code)
+        N_xs, det_name_prefix, ndigits = None, None, 1
+        for i in np.arange(1, MAX_DET_ELEMENTS + 1):
+            if f"xs_channel{i}" in keys:
+                N_xs, det_name_prefix, ndigits = i, "xs_channel", 1
+            elif f"xs_channel{i:02d}" in keys:
+                N_xs, det_name_prefix, ndigits = i, "xs_channel", 2
+            elif f"xs_channels_channel{i:02d}" in keys:
+                N_xs, det_name_prefix, ndigits = i, "xs_channels_channel", 2
+            else:
+                break
+        N_pts = num_events
+        N_bins = 4096
+        if "xs" in dets or "xs4" in dets:
+            d_xs = np.empty((N_xs, N_pts, N_bins))
+            for i in np.arange(0, N_xs):
+                chnum = f"{i + 1}" if ndigits == 1 else f"{i + 1:02d}"
+                dname = det_name_prefix + chnum
+
+                d = hdr.data(dname, fill=True)
+                d = np.array(list(d))
+                d_xs[i, :, :] = np.copy(d)
+            del d
+            # Reshape data
+            if num_events != (n_scan_slow * n_scan_fast):
+                tmp = np.zeros((N_xs, num_rows, n_scan_fast, N_bins))
+                for i in range(num_rows):
+                    for j in range(n_scan_fast):
+                        tmp[:, i, j, :] = fast_pos[:, i * n_scan_fast + j, :]
+                d_xs = np.copy(tmp)
+                del tmp
+            else:
+                d_xs = np.reshape(d_xs, (N_xs, n_scan_slow, n_scan_fast, N_bins))
+            # Sum data
+            d_xs_sum = np.squeeze(np.sum(d_xs, axis=0))
+
+        # Scaler list
+        sclr_list = ["sclr_i0", "sclr_im", "sclr_it"]
+        sclr_name = []
+        for s in sclr_list:
+            if s in keys:
+                sclr_name.append(s)
+        sclr = np.array(hdr.table()[sclr_name].values)
+        # Reshape data
+        if num_events != (n_scan_slow * n_scan_fast):
+            tmp = np.zeros((num_rows, n_scan_fast))
+            for i in range(num_rows):
+                for j in range(n_scan_fast):
+                    tmp[i, j] = fast_pos[i * n_scan_fast + j]
+            sclr = np.copy(tmp)
+            del tmp
+        else:
+            sclr = np.reshape(sclr, (n_scan_slow, n_scan_fast, len(sclr_name)))
+
+    # Consider snake
+    # pos_pos, d_xs, d_xs_sum, sclr
+    if snaking_enabled:
+        pos_pos[:, 1::2, :] = pos_pos[:, 1::2, ::-1]
+        if "xs" in dets or "xs4" in dets:
+            if d_xs is not None:
+                d_xs[:, 1::2, :, :] = d_xs[:, 1::2, ::-1, :]
+            if d_xs_sum is not None:
+                d_xs_sum[1::2, :, :] = d_xs_sum[1::2, ::-1, :]
+        if "xs2" in dets:
+            if d_xs2 is not None:
+                d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
+            if d_xs2_sum is not None:
+                d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
+        sclr[1::2, :, :] = sclr[1::2, ::-1, :]
+
+    def swap_axes():
+        nonlocal pos_name, pos_pos, d_xs, d_xs_sum, d_xs2, d_xs2_sum, sclr
+        # Need to swapaxes on pos_pos, d_xs, d_xs_sum, sclr
+        pos_name = pos_name[::-1]
+        pos_pos = da.swapaxes(pos_pos, 1, 2)
+        if "xs" in dets or "xs4" in dets:
+            if d_xs is not None:
+                d_xs = da.swapaxes(d_xs, 0, 1)
+            if d_xs_sum is not None:
+                d_xs_sum = da.swapaxes(d_xs_sum, 0, 1)
+        if "xs2" in dets:
+            if d_xs2 is not None:
+                d_xs2 = da.swapaxes(d_xs2, 0, 1)
+            if d_xs2_sum is not None:
+                d_xs2_sum = da.swapaxes(d_xs2_sum, 0, 1)
+        sclr = da.swapaxes(sclr, 0, 1)
+
+    if scan_doc["type"] == "XRF_FLY":
+        if fast_motor in ("nano_stage_sy", "nano_stage_y"):
+            swap_axes()
+    elif scan_doc["type"] == "XRF_STEP":
+        if "xs" in dets or "xs4" in dets:
+            d_xs = np.swapaxes(d_xs, 0, 1)
+            d_xs = np.swapaxes(d_xs, 1, 2)
+        if "xs2" in dets:
+            d_xs2 = np.swapaxes(d_xs2, 0, 1)
+            d_xs2 = np.swapaxes(d_xs2, 1, 2)
+        if fast_motor not in ("nano_stage_sy", "nano_stage_y"):
+            swap_axes()
+            pos_name = pos_name[::-1]  # Swap the positions back
+        else:
+            pos_name = pos_name[::-1]  # Swap the positions back
+
+    print("Data is loaded successfully. Preparing to save data ...")
+
+    data_output = []
+
+    for tmp_data, tmp_data_sum in ((d_xs, d_xs_sum), (d_xs2, d_xs2_sum)):
+        if tmp_data_sum is None:
+            continue
+
+        if tmp_data_sum is d_xs_sum:
+            detector_name = "xs4" if "xs4" in dets else "xs"
+            num_det = N_xs
+        else:
+            detector_name = "xs2"
+            num_det = N_xs2
+
+        # Replace NaNs with 0s (in corrupt data rows).
+        loaded_data = {}
+        loaded_data["det_sum"] = np.nan_to_num(tmp_data_sum.compute())
+        if create_each_det:
+            for i in range(num_det):
+                loaded_data["det" + str(i + 1)] = np.nan_to_num(da.squeeze(tmp_data[:, :, i, :]).compute())
+
+        if save_scaler:
+            loaded_data["scaler_data"] = sclr.compute()
+            loaded_data["scaler_names"] = sclr_names
+
+            # Replace NaNs for each scaler with median values
+            for n in range(loaded_data["scaler_data"].shape[-1]):
+                d = loaded_data["scaler_data"][:, :, n]
+                loaded_data["scaler_data"][:, :, n] = np.nan_to_num(d, nan=np.nanmedian(d))
+
+        loaded_data["pos_data"] = pos_pos.compute()
+        loaded_data["pos_names"] = pos_name
+
+        # Generate the default file name for the scan
+        if fpath is None:
+            fpath = f"scan2D_{runid}.h5"
+
+        # Modify file name (path) to include data on how many channels are included in the file and how many
+        #    channels are used for sum calculation
+        root, ext = os.path.splitext(fpath)
+        s = f"_{detector_name}_sum{num_det}ch"
+        if create_each_det:
+            s += f"+{num_det}ch"
+        fpath_out = f"{root}{s}{ext}"
+
+        if output_to_file:
+            # output to file
+            print(f"Saving data to hdf file '{fpath_out}': Detector: {detector_name}.")
+            fpath_out = save_data_to_hdf5(
+                fpath_out,
+                loaded_data,
+                metadata=mdata,
+                fname_add_version=fname_add_version,
+                file_overwrite_existing=file_overwrite_existing,
+                create_each_det=create_each_det,
+            )
+
+        d_dict = {
+            "dataset": loaded_data,
+            "file_name": fpath_out,
+            "detector_name": detector_name,
+            "metadata": mdata,
+        }
+        data_output.append(d_dict)
+
+    return data_output
+
+
 def map_data2D_tes(
     run_id_uid,
     fpath,
@@ -2328,7 +2804,10 @@ def map_data2D_tes(
     filler = Filler(db.reg.handler_reg, inplace=True)
     docs_primary = hdr.documents("primary", fill=False)
 
-    m, n_pt_max, missing_rows = 0, -1, []  # m - index
+    # Assume that the number of positions reflect the size of the row
+    n_pt_max = pos_data.shape[2]
+
+    m, missing_rows = 0, []  # m - index
     try:
         while True:
             try:
@@ -2347,10 +2826,6 @@ def map_data2D_tes(
             if is_filled:
                 data = doc["data"][detector_field]
                 data_det1 = np.array(data[:, 0, :], dtype=np.float32)
-
-                # The following is the fix for the case when data has corrupt row (smaller number of data points).
-                # It will not work if the first row is corrupt.
-                n_pt_max = max(data_det1.shape[0], n_pt_max)
                 data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
                 data_det1_adjusted[: data_det1.shape[0], :] = data_det1
 
@@ -3182,7 +3657,11 @@ def free_memory_from_handler():
     """
     # The following check is redundant: Data Broker prior to version 1.0.0 always has '_handler_cache'.
     #   In later versions of databroker the attribute may still be present if 'databroker.v0' is used.
-    if (LooseVersion(databroker.__version__) < LooseVersion("1.0.0")) or hasattr(db.fs, "_handler_cache"):
+    if (
+        (LooseVersion(databroker.__version__) < LooseVersion("1.0.0"))
+        or hasattr(db, "fs")
+        and hasattr(db.fs, "_handler_cache")
+    ):
         for h in db.fs._handler_cache.values():
             setattr(h, "_dataset", None)
         print("Memory is released (Databroker v0).")

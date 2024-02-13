@@ -393,8 +393,7 @@ class WndDetailedFittingParams(SecondaryWindow):
         self.pb_cancel.setEnabled(self._data_changed and not self._auto_update)
         self.cb_auto_update.setChecked(Qt.Checked if self._auto_update else Qt.Unchecked)
 
-    def _load_dialog_data(self):
-        ...
+    def _load_dialog_data(self): ...
 
     def _save_dialog_data_function(self):
         raise NotImplementedError()

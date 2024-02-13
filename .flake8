@@ -8,5 +8,5 @@ exclude =
     pyxrf/_version.py,
     docs/conf.py
 # There are some errors produced by 'black', therefore unavoidable
-ignore = E203, W503
+ignore = E203, W503, E701, E704
 max-line-length = 115

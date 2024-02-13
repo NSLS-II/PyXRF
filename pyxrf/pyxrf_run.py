@@ -7,9 +7,6 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QFontDatabase, QPalette
 from PyQt5.QtWidgets import QApplication, QStyleFactory
 
-from .gui_module.main_window import MainWindow
-from .gui_support.gpc_class import GlobalProcessingClasses
-
 logger = logging.getLogger("pyxrf")
 
 # if hasattr(Qt, 'AA_EnableHighDpiScaling'):
@@ -25,6 +22,14 @@ def run():
     # faulthandler.enable()
 
     parser = argparse.ArgumentParser(prog="pyxrf", description="Command line arguments")
+    parser.add_argument(
+        "-c",
+        "--catalog-name",
+        default=None,
+        type=str,
+        dest="catalog_name",
+        help="Name of the Databroker catalog to open, e.g. 'srx'",
+    )
     parser.add_argument(
         "-l",
         "--loglevel",
@@ -44,6 +49,14 @@ def run():
         help="Color theme: DARK theme is only for debugging purposes.",
     )
     args = parser.parse_args()
+
+    from .model.catalog_management import catalog_info
+
+    if args.catalog_name:
+        catalog_info.set_name(args.catalog_name)
+
+    from .gui_module.main_window import MainWindow
+    from .gui_support.gpc_class import GlobalProcessingClasses
 
     # Setup the Logger
     logger.setLevel(args.loglevel)
