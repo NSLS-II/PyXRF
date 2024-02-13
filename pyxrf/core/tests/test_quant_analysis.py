@@ -41,7 +41,7 @@ _standard_data_sample = [
         "name": "Test Micromatter 411640",
         "serial": "411640",
         "description": "CeF3 21.1 / Au 20.6",
-        "compounds": {"CeF3": 21.1, "Au": 20.6}
+        "compounds": {"CeF3": 21.1, "Au": 20.6},
         # Missing optional 'density' field
     },
 ]

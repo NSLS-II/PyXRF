@@ -2804,7 +2804,10 @@ def map_data2D_tes(
     filler = Filler(db.reg.handler_reg, inplace=True)
     docs_primary = hdr.documents("primary", fill=False)
 
-    m, n_pt_max, missing_rows = 0, -1, []  # m - index
+    # Assume that the number of positions reflect the size of the row
+    n_pt_max = pos_data.shape[2]
+
+    m, missing_rows = 0, []  # m - index
     try:
         while True:
             try:
@@ -2823,10 +2826,6 @@ def map_data2D_tes(
             if is_filled:
                 data = doc["data"][detector_field]
                 data_det1 = np.array(data[:, 0, :], dtype=np.float32)
-
-                # The following is the fix for the case when data has corrupt row (smaller number of data points).
-                # It will not work if the first row is corrupt.
-                n_pt_max = max(data_det1.shape[0], n_pt_max)
                 data_det1_adjusted = np.zeros([n_pt_max, data_det1.shape[1]])
                 data_det1_adjusted[: data_det1.shape[0], :] = data_det1
 
