@@ -14,8 +14,8 @@ catalog_info = CatalogInfo()
 
 
 def get_catalog(catalog_name):
-    from packaging import version
     import databroker
+    from packaging import version
 
     db_version_major = version.parse(databroker.__version__).major == 1
     if db_version_major == 1:
