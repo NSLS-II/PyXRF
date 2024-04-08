@@ -3,6 +3,48 @@ Release Notes
 =============
 
 
+v1.0.26 (2024-04-07)
+====================
+
+Fixed
+-----
+
+- Compatibility with recent Numba: removed unsupported ``np.asarray`` function
+  in the code compiled by Numba.
+
+Added
+-----
+
+- New ``make_hdf`` parameter: ``catalog``.
+
+- New ``pyxrf`` CLI parameter: ``--catalog-name`` or ``-c``.
+
+- Extended support for loading corrupt data from Databroker for TES beamline.
+
+
+v1.0.25 (2024-01-18)
+====================
+
+Fixed
+-----
+
+- Formatting of TXT file saved by 'Save Spectrum/Fit': the first column now
+  contains the energy values in kEv (previously, the first column contained
+  the index of the energy values).
+
+- Fixed issue with Dask v2023.9.3 and recent Numpy/Numba.
+
+Added
+-----
+
+- Quantitative calibration standards AXO C1 and C10 were added.
+
+Changed
+-------
+
+- Load 12 scaler channels from Databroker (HXN beamline).
+
+
 v1.0.24 (2023-05-12)
 ====================
 
