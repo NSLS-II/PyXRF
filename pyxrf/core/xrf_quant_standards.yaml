@@ -304,3 +304,16 @@
         Cu: 2.24
         Fe: 4.91
     density: 35.97
+
+-   name: APS AXO
+    serial: ---
+    description: AXO from APS with low concentrations and Ca element
+    compounds:
+        Pb: 7.61
+        La: 11.01
+        Pd: 1.8
+        Mo: 1.32
+        Cu: 2.84
+        Fe: 5.04
+        Ca: 19.31
+    density: 49.93
