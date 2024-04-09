@@ -708,7 +708,7 @@ class Fit1D(Atom):
 
             if self.point2v > 0 or self.point2h > 0:
                 prefix_fname = os.path.basename(self.hdf_path).split(".")[0]
-                output_folder = os.path.join(os.path.dirname(self.hdfpath), prefix_fname + "_pixel_fit")
+                output_folder = os.path.join(os.path.dirname(self.hdf_path), prefix_fname + "_pixel_fit")
                 if os.path.exists(output_folder) is False:
                     os.mkdir(output_folder)
                 save_fitted_fig(

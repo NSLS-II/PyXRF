@@ -140,6 +140,9 @@ class DrawImageAdvanced(Atom):
         self.param_quant_analysis.set_experiment_distance_to_sample(distance_to_sample=0.0)
         self.param_quant_analysis.set_experiment_incident_energy(incident_energy=self.incident_energy)
 
+        # init of pos values
+        self.pixel_or_pos = 0
+
         self.fig = plt.figure(figsize=(3, 2))
         matplotlib.rcParams["axes.formatter.useoffset"] = True
 
@@ -170,9 +173,6 @@ class DrawImageAdvanced(Atom):
             self.scaler_items = list(self.scaler_norm_dict.keys())
             self.scaler_items.sort()
             self.scaler_data = None
-
-        # init of pos values
-        self.set_pixel_or_pos(0)
 
         if "positions" in self.io_model.img_dict:
             try:
