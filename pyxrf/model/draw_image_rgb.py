@@ -135,6 +135,9 @@ class DrawImageRGB(Atom):
             "dwell_time",
         ]
 
+        # init of pos values
+        self.pixel_or_pos = 0
+
         self.rgb_keys = ["red", "green", "blue"]
         self._init_rgb_dict()
 
@@ -155,9 +158,6 @@ class DrawImageRGB(Atom):
             self.init_plot_status()
 
     def init_plot_status(self):
-        # init of pos values
-        self.set_pixel_or_pos(0)
-
         # init of scaler for normalization
         self.scaler_name_index = 0
 
