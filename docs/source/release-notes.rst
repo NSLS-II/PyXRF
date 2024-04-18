@@ -2,6 +2,21 @@
 Release Notes
 =============
 
+v1.0.27 (2024-04-18)
+====================
+
+Fixed
+-----
+
+- Fixed 'Save spectra for pixels in selected region' ('Maps' tab).
+
+- Selection of axes scale (Pixels vs. Positions) is not reset after each fitting of the map.
+
+Added
+-----
+
+- APS AXO quantitative calibration standard.
+
 
 v1.0.26 (2024-04-07)
 ====================
