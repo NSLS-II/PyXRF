@@ -3625,7 +3625,7 @@ def save_data_to_hdf5(
                 ns, ne = n * n_rows_batch, min((n + 1) * n_rows_batch, n_rows)
                 for retry in range(n_tiled_download_retries):
                     try:
-                        dset[ns:ne, ...] = np.array(data[ns:ne, ...])
+                        dset[ns:ne, ...] = np.nan_to_num(np.array(data[ns:ne, ...]))
                         break
                     except Exception as ex:
                         logger.error(f"Failed to load the batch: {ex}")
