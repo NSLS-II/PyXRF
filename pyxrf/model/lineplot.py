@@ -10,7 +10,7 @@ import matplotlib.ticker as mticker
 import numpy as np
 from atom.api import Atom, Bool, Dict, Float, Int, List, Str, Typed, observe
 from matplotlib.axes import Axes
-from matplotlib.collections import BrokenBarHCollection
+from matplotlib.collections import PolyCollection
 from matplotlib.colors import LogNorm
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
@@ -122,7 +122,7 @@ class LinePlotModel(Atom):
     _fig_preview = Typed(Figure)
     _ax_preview = Typed(Axes)
     _lines_preview = List()
-    _bahr_preview = Typed(BrokenBarHCollection)
+    _bahr_preview = Typed(PolyCollection)
 
     plot_type_preview = Typed(PlotTypes)
     energy_range_preview = Typed(EnergyRangePresets)
@@ -177,7 +177,7 @@ class LinePlotModel(Atom):
     show_exp_opt = Bool(False)  # Flag: show spectrum preview
 
     # Reference to artist responsible for displaying the selected range of energies on the plot
-    plot_energy_barh = Typed(BrokenBarHCollection)
+    plot_energy_barh = Typed(PolyCollection)
     t_bar = Typed(object)
 
     plot_exp_list = List()
@@ -727,7 +727,7 @@ class LinePlotModel(Atom):
             self.plot_energy_barh.remove()
 
         # Create the new plot (based on new parameters if necessary
-        self.plot_energy_barh = BrokenBarHCollection.span_where(
+        self.plot_energy_barh = PolyCollection.span_where(
             x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         )
         self._ax.add_collection(self.plot_energy_barh)
@@ -1471,7 +1471,7 @@ class LinePlotModel(Atom):
             barh_existing.remove()
 
         # Create the new plot (based on new parameters if necessary
-        barh_new = BrokenBarHCollection.span_where(
+        barh_new = PolyCollection.span_where(
             x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         )
         axes.add_collection(barh_new)
