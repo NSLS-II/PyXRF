@@ -2,6 +2,21 @@
 Release Notes
 =============
 
+
+v1.0.28 (2024-06-20)
+====================
+
+Fixed
+-----
+
+- Compatibility with Matplotlib 3.9.0: deprecated ``BrokenBarHCollection`` was replaced with ``PolyCollection``.
+
+Added
+-----
+
+- Optimized data loaded from Tiled server for SRX beamline.
+
+
 v1.0.27 (2024-04-18)
 ====================
 
