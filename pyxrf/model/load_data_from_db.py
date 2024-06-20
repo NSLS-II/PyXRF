@@ -2318,24 +2318,20 @@ def map_data2D_srx_new_tiled(
 
         d_xs, d_xs_sum, N_xs, d_xs2, d_xs2_sum, N_xs2 = None, None, 0, None, None, 0
         if "xs_fluor" in data_stream0:
-            # The type of loaded data is tiled.client.array.DaskArrayClient
-            #   If the data is not explicitly converted to da.array, then da.sum
-            #   will fill the whole dataset, which is not desirable. This could be
-            #   fixed in the future versions of Tiled.
-            d_xs = da.array(data_stream0["xs_fluor"])
+            d_xs = data_stream0["xs_fluor"].read()
             d_xs_sum = da.sum(d_xs, 2)
             N_xs = d_xs.shape[2]
         elif "fluor" in data_stream0:  # Old format
-            d_xs = da.array(data_stream0["fluor"])
+            d_xs = data_stream0["fluor"].read()
             d_xs_sum = da.sum(d_xs, 2)
             N_xs = d_xs.shape[2]
 
         if "xs_fluor_xs2" in data_stream0:
-            d_xs2 = da.array(data_stream0["xs_fluor_xs2"])
+            d_xs2 = data_stream0["xs_fluor_xs2"].read()
             d_xs2_sum = da.sum(d_xs2, 2)
             N_xs2 = d_xs2.shape[2]
         elif "fluor_xs2" in data_stream0:  # Old format
-            d_xs2 = da.array(data_stream0["fluor_xs2"])
+            d_xs2 = data_stream0["fluor_xs2"].read()
             d_xs2_sum = da.sum(d_xs2, 2)
             N_xs2 = d_xs2.shape[2]
 
@@ -3626,6 +3622,7 @@ def save_data_to_hdf5(
                 for retry in range(n_tiled_download_retries):
                     try:
                         dset[ns:ne, ...] = np.nan_to_num(np.array(data[ns:ne, ...]))
+                        # dset[ns:ne, ...] = np.nan_to_num(data[ns:ne, ...].compute())
                         break
                     except Exception as ex:
                         logger.error(f"Failed to load the batch: {ex}")
