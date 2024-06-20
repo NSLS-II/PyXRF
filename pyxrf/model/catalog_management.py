@@ -23,5 +23,5 @@ def get_catalog(catalog_name):
 
     from tiled.client import from_uri
 
-    c = from_uri("https://tiled.nsls2.bnl.gov")
+    c = from_uri("https://tiled.nsls2.bnl.gov", "dask")
     return c[catalog_name.lower()]["raw"]
