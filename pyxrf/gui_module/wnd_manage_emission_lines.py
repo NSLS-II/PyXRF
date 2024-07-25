@@ -3,7 +3,7 @@ import logging
 
 import numpy as np
 from qtpy.QtCore import Qt, Signal, Slot
-from qtpy.QtGui import QBrush, QColor, QDoubleValidator
+from qtpy.QtGui import QBrush, QColor
 from qtpy.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -21,6 +21,7 @@ from .dlg_new_user_peak import DialogNewUserPeak
 from .dlg_pileup_peak_parameters import DialogPileupPeakParameters
 from .useful_widgets import (
     CheckBoxNamed,
+    DoubleValidator,
     ElementSelection,
     LineEditExtended,
     LineEditReadOnly,
@@ -146,7 +147,7 @@ class WndManageEmissionLines(SecondaryWindow):
         """The table has only functionality necessary to demonstrate how it is going
         to look. A lot more code is needed to actually make it run."""
 
-        self._validator_peak_height = QDoubleValidator()
+        self._validator_peak_height = DoubleValidator()
         self._validator_peak_height.setBottom(0.01)
 
         self.tbl_elines = QTableWidget()
@@ -190,7 +191,7 @@ class WndManageEmissionLines(SecondaryWindow):
         self.pb_remove_rel.clicked.connect(self.pb_remove_rel_clicked)
 
         self.le_remove_rel = LineEditExtended("")
-        self._validator_le_remove_rel = QDoubleValidator()
+        self._validator_le_remove_rel = DoubleValidator()
         self._validator_le_remove_rel.setBottom(0.01)  # Some small number
         self._validator_le_remove_rel.setTop(100.0)
         self.le_remove_rel.setText(self._format_threshold(self._remove_peak_threshold))
@@ -539,7 +540,7 @@ class WndManageEmissionLines(SecondaryWindow):
             if n_col == 4:
                 text = item.text()
                 eline = self._table_contents[n_row]["eline"]
-                if self._validator_peak_height.validate(text, 0)[0] != QDoubleValidator.Acceptable:
+                if self._validator_peak_height.validate(text, 0)[0] != DoubleValidator.Acceptable:
                     val = self._table_contents[n_row]["peak_int"]
                     self._enable_events = False
                     item.setText(f"{val:.2f}")
@@ -598,7 +599,7 @@ class WndManageEmissionLines(SecondaryWindow):
 
     def le_remove_rel_editing_finished(self):
         text = self.le_remove_rel.text()
-        if self._validator_le_remove_rel.validate(text, 0)[0] == QDoubleValidator.Acceptable:
+        if self._validator_le_remove_rel.validate(text, 0)[0] == DoubleValidator.Acceptable:
             self._remove_peak_threshold = float(text)
         else:
             self.le_remove_rel.setText(self._format_threshold(self._remove_peak_threshold))
@@ -624,7 +625,7 @@ class WndManageEmissionLines(SecondaryWindow):
     def _update_le_remove_rel_state(self, text=None):
         if text is None:
             text = self.le_remove_rel.text()
-        state = self._validator_le_remove_rel.validate(text, 0)[0] == QDoubleValidator.Acceptable
+        state = self._validator_le_remove_rel.validate(text, 0)[0] == DoubleValidator.Acceptable
         self.le_remove_rel.setValid(state)
         self.pb_remove_rel.setEnabled(state)
 

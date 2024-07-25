@@ -730,6 +730,9 @@ class LinePlotModel(Atom):
         self.plot_energy_barh = PolyCollection.span_where(
             x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         )
+        # self.plot_energy_barh = self._ax.fill_between(
+        #     x_v, y1=y_min, y2=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
+        # )
         self._ax.add_collection(self.plot_energy_barh)
 
     def plot_multi_exp_data(self):
@@ -1474,6 +1477,9 @@ class LinePlotModel(Atom):
         barh_new = PolyCollection.span_where(
             x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         )
+        # barh_new = axes.fill_between(
+        #     x_v, y1=y_min, y2=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
+        # )
         axes.add_collection(barh_new)
 
         return barh_new

@@ -1,6 +1,6 @@
 import logging
 
-from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtCore import QLocale, Qt, Signal, Slot
 from qtpy.QtGui import QColor, QDoubleValidator, QFontMetrics, QIntValidator, QPalette
 from qtpy.QtWidgets import (
     QCheckBox,
@@ -423,7 +423,18 @@ class IntValidatorRelaxed(IntValidatorStrict):
         return result
 
 
-class DoubleValidatorStrict(QDoubleValidator):
+class DoubleValidator(QDoubleValidator):
+    """
+    `DoubleValidator` is identical to QDoubleValidator except that it
+    is always using 'en_US' locale.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setLocale(QLocale("en_US"))
+
+
+class DoubleValidatorStrict(DoubleValidator):
     """
     `DoubleValidatorStrict` verifies additional condition: double number can not
     contain commas, since it can't be converted to floating point number directly.

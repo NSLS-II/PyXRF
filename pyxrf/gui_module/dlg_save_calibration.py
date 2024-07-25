@@ -2,7 +2,6 @@ import logging
 import os
 
 from qtpy.QtCore import Qt
-from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -15,6 +14,7 @@ from qtpy.QtWidgets import (
 )
 
 from .useful_widgets import (
+    DoubleValidator,
     DoubleValidatorStrict,
     LineEditExtended,
     LineEditReadOnly,
@@ -176,13 +176,13 @@ class DialogSaveCalibration(QDialog):
             self.file_path = file_path
 
     def le_distance_to_sample_text_changed(self, text):
-        valid = self._le_distance_to_sample_validator.validate(text, 0)[0] == QDoubleValidator.Acceptable
+        valid = self._le_distance_to_sample_validator.validate(text, 0)[0] == DoubleValidator.Acceptable
         self.le_distance_to_sample.setValid(valid)
         self.pb_ok.setEnabled(valid)
 
     def le_distance_to_sample_editing_finished(self):
         text = self.le_distance_to_sample.text()
-        if self._le_distance_to_sample_validator.validate(text, 0)[0] == QDoubleValidator.Acceptable:
+        if self._le_distance_to_sample_validator.validate(text, 0)[0] == DoubleValidator.Acceptable:
             self.__distance_to_sample = float(text)
         self._show_distance_to_sample()
         self._show_preview()  # Show/hide warning on zero distance-to-sample value
