@@ -1,9 +1,8 @@
 import logging
 
-from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QLabel, QVBoxLayout
 
-from .useful_widgets import LineEditExtended, LineEditReadOnly, set_tooltip
+from .useful_widgets import DoubleValidator, LineEditExtended, LineEditReadOnly, set_tooltip
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class DialogEditUserPeakParameters(QDialog):
         self.le_fwhm = LineEditExtended()
         set_tooltip(self.le_fwhm, "<b>FWHM</b> (in keV) of the user-defined peak.")
 
-        self._validator = QDoubleValidator()
+        self._validator = DoubleValidator()
 
         vbox = QVBoxLayout()
 
@@ -99,7 +98,7 @@ class DialogEditUserPeakParameters(QDialog):
         if text is None:
             text = le_widget.text()
         valid = True
-        if self._validator.validate(text, 0)[0] != QDoubleValidator.Acceptable:
+        if self._validator.validate(text, 0)[0] != DoubleValidator.Acceptable:
             valid = False
         elif not condition(float(text)):
             valid = False

@@ -2,7 +2,7 @@ import logging
 import textwrap
 
 from qtpy.QtCore import Qt, Signal, Slot
-from qtpy.QtGui import QBrush, QColor, QDoubleValidator
+from qtpy.QtGui import QBrush, QColor
 from qtpy.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -25,7 +25,7 @@ from qtpy.QtWidgets import (
 )
 
 from .dlg_view_calib_standard import DialogViewCalibStandard
-from .useful_widgets import LineEditExtended, SecondaryWindow, get_background_css, set_tooltip
+from .useful_widgets import DoubleValidator, LineEditExtended, SecondaryWindow, get_background_css, set_tooltip
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class WndLoadQuantitativeCalibration(SecondaryWindow):
 
         self._distance_to_sample = 0.0
         self.le_distance_to_sample = LineEditExtended()
-        le_dist_validator = QDoubleValidator()
+        le_dist_validator = DoubleValidator()
         le_dist_validator.setBottom(0)
         self.le_distance_to_sample.setValidator(le_dist_validator)
         self._set_distance_to_sample()

@@ -1,9 +1,8 @@
 import copy
 
-from qtpy.QtGui import QDoubleValidator
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QGroupBox, QLabel, QPushButton, QVBoxLayout
 
-from .useful_widgets import LineEditExtended, set_tooltip
+from .useful_widgets import DoubleValidator, LineEditExtended, set_tooltip
 
 
 class DialogFindElements(QDialog):
@@ -19,7 +18,7 @@ class DialogFindElements(QDialog):
         #   then simply save the changed parameter values.
         self.find_elements_requested = False
 
-        self.validator = QDoubleValidator()
+        self.validator = DoubleValidator()
 
         self.le_e_calib_a0 = LineEditExtended()
         self.le_e_calib_a0.setValidator(self.validator)
@@ -218,7 +217,7 @@ class DialogFindElements(QDialog):
         self._read_le_value(self.le_range_high, self._dialog_data["energy_bound_high"])
 
     def _validate_as_float(self, text):
-        return self.validator.validate(text, 0)[0] == QDoubleValidator.Acceptable
+        return self.validator.validate(text, 0)[0] == DoubleValidator.Acceptable
 
     def _validate_text(self, line_edit, text):
         line_edit.setValid(self._validate_as_float(text))

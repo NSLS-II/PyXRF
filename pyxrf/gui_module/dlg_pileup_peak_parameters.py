@@ -1,10 +1,10 @@
 import logging
 
 from qtpy.QtCore import QRegExp
-from qtpy.QtGui import QDoubleValidator, QRegExpValidator
+from qtpy.QtGui import QRegExpValidator
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QGridLayout, QLabel, QVBoxLayout
 
-from .useful_widgets import LineEditExtended, LineEditReadOnly, set_tooltip
+from .useful_widgets import DoubleValidator, LineEditExtended, LineEditReadOnly, set_tooltip
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ class DialogPileupPeakParameters(QDialog):
             text = le_widget.text()
 
         valid = True
-        if self._validator_eline.validate(text, 0)[0] != QDoubleValidator.Acceptable:
+        if self._validator_eline.validate(text, 0)[0] != DoubleValidator.Acceptable:
             valid = False
         else:
             # Try to compute energy for the pileup peak

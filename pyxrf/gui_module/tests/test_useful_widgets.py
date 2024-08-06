@@ -1,10 +1,10 @@
 import numpy.testing as npt
 import pytest
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QDoubleValidator
 from PyQt5.QtWidgets import QLineEdit
 
 from pyxrf.gui_module.useful_widgets import (
+    DoubleValidator,
     DoubleValidatorRelaxed,
     IntValidatorRelaxed,
     IntValidatorStrict,
@@ -126,7 +126,8 @@ def test_IntValidatorRelaxed_2(qtbot, text, range, valid):
 ])
 # fmt: on
 def test_DoubleValidatorStrict(text, range, result):
-    validator = QDoubleValidator()
+    validator = DoubleValidator()
+
     if range is not None:
         validator.setRange(range[0], range[1], 5)
     assert validator.validate(text, 0)[0] == result, "Validation failed"
