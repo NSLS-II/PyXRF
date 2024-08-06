@@ -637,7 +637,8 @@ class LinePlotModel(Atom):
         y_v = (-1e30, 1e30)  # This will cover the range of possible values of accumulated counts
 
         if self.line_vertical_marker:
-            self._ax.lines.remove(self.line_vertical_marker)
+            self.line_vertical_marker.remove()
+            # self._ax.lines.remove(self.line_vertical_marker)
             self.line_vertical_marker = None
         if self.vertical_marker_is_visible:
             (self.line_vertical_marker,) = self._ax.plot(x_v, y_v, color="blue")
