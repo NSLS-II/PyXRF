@@ -726,16 +726,15 @@ class LinePlotModel(Atom):
         # Remove the plot if it exists
         if self.plot_energy_barh in self._ax.collections:
             self.plot_energy_barh.remove()
-            self.plot_energy_barh.remove()
 
         # Create the new plot (based on new parameters if necessary
         # self.plot_energy_barh = PolyCollection.span_where(
         #     x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         # )
+        #self._ax.add_collection(self.plot_energy_barh)
         self.plot_energy_barh = self._ax.fill_between(
             x_v, y1=y_min, y2=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         )
-        self._ax.add_collection(self.plot_energy_barh)
 
     def plot_multi_exp_data(self):
         while len(self.plot_exp_list):
@@ -1474,16 +1473,15 @@ class LinePlotModel(Atom):
         # Remove the plot if it exists
         if barh_existing in axes.collections:
             barh_existing.remove()
-            barh_existing.remove()
 
         # Create the new plot (based on new parameters if necessary
         # barh_new = PolyCollection.span_where(
         #     x_v, ymin=y_min, ymax=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         # )
+        #axes.add_collection(barh_new)
         barh_new = axes.fill_between(
             x_v, y1=y_min, y2=y_max, where=ss, facecolor="white", edgecolor="yellow", alpha=1
         )
-        axes.add_collection(barh_new)
 
         return barh_new
 
