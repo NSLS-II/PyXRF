@@ -3,6 +3,17 @@ Release Notes
 =============
 
 
+v1.0.29 (2024-08-20)
+====================
+
+Fixed
+-----
+
+- Issue with validation of floating point numbers in dialog boxes when PyXRF is used in non-US locales.
+
+- Issues Matplotlib deprecations of ``AritstList.remove()`` and ``PolyCollection.span_where()``.
+
+
 v1.0.28 (2024-06-20)
 ====================
 
