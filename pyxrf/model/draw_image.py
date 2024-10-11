@@ -742,7 +742,7 @@ class DrawImageAdvanced(Atom):
                             cmap=grey_use,
                             vmin=low_limit,
                             vmax=high_limit,
-                            linewidths=1,
+                            #linewidths=1,
                             linewidth=0,
                         )
                         grid[i].set_ylim(yd_axis_max, yd_axis_min)
@@ -810,7 +810,7 @@ class DrawImageAdvanced(Atom):
                         s=500,
                         alpha=1.0,  # Originally: alpha=0.8
                         cmap=grey_use,
-                        linewidths=1,
+                        #linewidths=1,
                         linewidth=0,
                     )
                     grid[i].set_ylim(yd_axis_min, yd_axis_max)
