@@ -2438,7 +2438,6 @@ def map_data2D_srx_new_tiled(
         N_pts = num_events
         N_bins = 4096
         if "xs" in dets or "xs4" in dets:
-            print(f"{N_xs = } {N_pts = } {N_bins = }")  #
             d_xs = da.empty((N_xs, N_pts, N_bins))
             for i in np.arange(0, N_xs):
                 chnum = f"{i + 1}" if ndigits == 1 else f"{i + 1:02d}"
