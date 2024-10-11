@@ -2244,7 +2244,6 @@ def map_data2D_srx_new_tiled(
         )
 
     scan_doc = start_doc["scan"]
-    stop_doc = hdr.stop
 
     logger.info("Start document:\n%s", pprint.pformat(start_doc))
 
@@ -2407,9 +2406,6 @@ def map_data2D_srx_new_tiled(
         n_scan_fast, n_scan_slow = scan_doc["shape"]
         n_scan_fast, n_scan_slow = int(n_scan_fast), int(n_scan_slow)
         num_rows = len(fast_pos) / n_scan_fast
-        n_scan_total = n_scan_fast * num_rows
-        #fast_pos = fast_pos[:, n_scan_total]
-        #slow_pos = slow_pos[:, n_scan_total]
         fast_pos = da.reshape(fast_pos, (num_rows, n_scan_fast))
         slow_pos = da.reshape(slow_pos, (num_rows, n_scan_fast))
 
@@ -2442,12 +2438,12 @@ def map_data2D_srx_new_tiled(
         N_pts = num_events
         N_bins = 4096
         if "xs" in dets or "xs4" in dets:
-            print(f"{N_xs = } {N_pts = } {N_bins = }") #
+            print(f"{N_xs = } {N_pts = } {N_bins = }")  #
             d_xs = da.empty((N_xs, N_pts, N_bins))
             for i in np.arange(0, N_xs):
                 chnum = f"{i + 1}" if ndigits == 1 else f"{i + 1:02d}"
                 dname = det_name_prefix + chnum + det_name_suffix
-                d  = data_primary[dname].read()
+                d = data_primary[dname].read()
                 d_xs[i, :, :] = d
             del d
 
