@@ -2244,7 +2244,6 @@ def map_data2D_srx_new_tiled(
         )
 
     scan_doc = start_doc["scan"]
-    stop_doc = hdr.stop
 
     logger.info("Start document:\n%s", pprint.pformat(start_doc))
 
@@ -2399,18 +2398,16 @@ def map_data2D_srx_new_tiled(
         slow_key = slow_motor + "_user_setpoint"
 
         # Collect motor positions
-        fast_pos = data_primary[fast_key]
-        slow_pos = data_primary[fast_key]
+        fast_pos = data_primary[fast_key].read()
+        slow_pos = data_primary[slow_key].read()
 
         # Reshape motor positions
-        num_events = stop_doc["num_events"]["primary"]
-        _, n_scan_fast = scan_doc["shape"]
+        num_events = len(fast_pos)
+        n_scan_fast, n_scan_slow = scan_doc["shape"]
+        n_scan_fast, n_scan_slow = int(n_scan_fast), int(n_scan_slow)
         num_rows = len(fast_pos) / n_scan_fast
-        n_scan_total = n_scan_fast * num_rows
-        fast_pos = fast_pos[:, n_scan_total]
-        slow_pos = slow_pos[:, n_scan_total]
-        fast_pos = da.reshape(fast_pos, (n_scan_slow, n_scan_fast))
-        slow_pos = da.reshape(slow_pos, (n_scan_slow, n_scan_fast))
+        fast_pos = da.reshape(fast_pos, (num_rows, n_scan_fast))
+        slow_pos = da.reshape(slow_pos, (num_rows, n_scan_fast))
 
         # Put into one array for h5 file
         pos_pos = da.zeros((2, num_rows, n_scan_fast))
@@ -2425,10 +2422,12 @@ def map_data2D_srx_new_tiled(
         # Get detector data
         keys = list(data_primary)
         MAX_DET_ELEMENTS = 8
-        # !!!!!! The following code for stepscan needs to be revised (still the old code)
-        N_xs, det_name_prefix, ndigits = None, None, 1
+
+        N_xs, det_name_prefix, det_name_suffix, ndigits = None, None, "", 1
         for i in np.arange(1, MAX_DET_ELEMENTS + 1):
-            if f"xs_channel{i}" in keys:
+            if f"xs_channel{i:02d}_fluor" in keys:  # This is the latest
+                N_xs, det_name_prefix, det_name_suffix, ndigits = i, "xs_channel", "_fluor", 2
+            elif f"xs_channel{i}" in keys:
                 N_xs, det_name_prefix, ndigits = i, "xs_channel", 1
             elif f"xs_channel{i:02d}" in keys:
                 N_xs, det_name_prefix, ndigits = i, "xs_channel", 2
@@ -2439,45 +2438,33 @@ def map_data2D_srx_new_tiled(
         N_pts = num_events
         N_bins = 4096
         if "xs" in dets or "xs4" in dets:
-            d_xs = np.empty((N_xs, N_pts, N_bins))
+            d_xs = da.empty((N_xs, N_pts, N_bins))
             for i in np.arange(0, N_xs):
                 chnum = f"{i + 1}" if ndigits == 1 else f"{i + 1:02d}"
-                dname = det_name_prefix + chnum
-
-                d = hdr.data(dname, fill=True)
-                d = np.array(list(d))
-                d_xs[i, :, :] = np.copy(d)
+                dname = det_name_prefix + chnum + det_name_suffix
+                d = data_primary[dname].read()
+                d_xs[i, :, :] = d
             del d
-            # Reshape data
-            if num_events != (n_scan_slow * n_scan_fast):
-                tmp = np.zeros((N_xs, num_rows, n_scan_fast, N_bins))
-                for i in range(num_rows):
-                    for j in range(n_scan_fast):
-                        tmp[:, i, j, :] = fast_pos[:, i * n_scan_fast + j, :]
-                d_xs = np.copy(tmp)
-                del tmp
-            else:
-                d_xs = np.reshape(d_xs, (N_xs, n_scan_slow, n_scan_fast, N_bins))
+
+            d_xs = da.reshape(d_xs, (N_xs, num_rows, n_scan_fast, N_bins))
+
             # Sum data
-            d_xs_sum = np.squeeze(np.sum(d_xs, axis=0))
+            d_xs_sum = da.squeeze(da.sum(d_xs, axis=0))
+
+        d_xs2, d_xs2_sum = None, None
 
         # Scaler list
         sclr_list = ["sclr_i0", "sclr_im", "sclr_it"]
-        sclr_name = []
+        sclr_names = []
         for s in sclr_list:
             if s in keys:
-                sclr_name.append(s)
-        sclr = np.array(hdr.table()[sclr_name].values)
-        # Reshape data
-        if num_events != (n_scan_slow * n_scan_fast):
-            tmp = np.zeros((num_rows, n_scan_fast))
-            for i in range(num_rows):
-                for j in range(n_scan_fast):
-                    tmp[i, j] = fast_pos[i * n_scan_fast + j]
-            sclr = np.copy(tmp)
-            del tmp
+                sclr_names.append(s)
+        if sclr_names:
+            sclr_list = [data_primary[_].read() for _ in sclr_names]
+            sclr_list = [da.reshape(_, (n_scan_slow, n_scan_fast)) for _ in sclr_list]
+            sclr = da.stack(sclr_list, axis=-1)
         else:
-            sclr = np.reshape(sclr, (n_scan_slow, n_scan_fast, len(sclr_name)))
+            sclr = None
 
     # Consider snake
     # pos_pos, d_xs, d_xs_sum, sclr
@@ -2493,7 +2480,8 @@ def map_data2D_srx_new_tiled(
                 d_xs2[:, 1::2, :, :] = d_xs2[:, 1::2, ::-1, :]
             if d_xs2_sum is not None:
                 d_xs2_sum[1::2, :, :] = d_xs2_sum[1::2, ::-1, :]
-        sclr[1::2, :, :] = sclr[1::2, ::-1, :]
+        if sclr is not None:
+            sclr[1::2, :, :] = sclr[1::2, ::-1, :]
 
     def swap_axes():
         nonlocal pos_name, pos_pos, d_xs, d_xs_sum, d_xs2, d_xs2_sum, sclr
@@ -2510,22 +2498,21 @@ def map_data2D_srx_new_tiled(
                 d_xs2 = da.swapaxes(d_xs2, 0, 1)
             if d_xs2_sum is not None:
                 d_xs2_sum = da.swapaxes(d_xs2_sum, 0, 1)
-        sclr = da.swapaxes(sclr, 0, 1)
+        if sclr is not None:
+            sclr = da.swapaxes(sclr, 0, 1)
 
     if scan_doc["type"] == "XRF_FLY":
         if fast_motor in ("nano_stage_sy", "nano_stage_y"):
             swap_axes()
     elif scan_doc["type"] == "XRF_STEP":
         if "xs" in dets or "xs4" in dets:
-            d_xs = np.swapaxes(d_xs, 0, 1)
-            d_xs = np.swapaxes(d_xs, 1, 2)
+            d_xs = da.swapaxes(d_xs, 0, 1)
+            d_xs = da.swapaxes(d_xs, 1, 2)
         if "xs2" in dets:
-            d_xs2 = np.swapaxes(d_xs2, 0, 1)
-            d_xs2 = np.swapaxes(d_xs2, 1, 2)
-        if fast_motor not in ("nano_stage_sy", "nano_stage_y"):
+            d_xs2 = da.swapaxes(d_xs2, 0, 1)
+            d_xs2 = da.swapaxes(d_xs2, 1, 2)
+        if fast_motor in ("nano_stage_sy", "nano_stage_y"):
             swap_axes()
-            pos_name = pos_name[::-1]  # Swap the positions back
-        else:
             pos_name = pos_name[::-1]  # Swap the positions back
 
     print("Data is loaded successfully. Preparing to save data ...")
@@ -2552,7 +2539,7 @@ def map_data2D_srx_new_tiled(
                 # loaded_data["det" + str(i + 1)] = np.nan_to_num(da.squeeze(tmp_data[:, :, i, :]).compute())
                 loaded_data["det" + str(i + 1)] = da.squeeze(tmp_data[:, :, i, :])
 
-        if save_scaler:
+        if save_scaler and sclr is not None:
             loaded_data["scaler_data"] = sclr.compute()
             loaded_data["scaler_names"] = sclr_names
 
