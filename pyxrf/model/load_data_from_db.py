@@ -2354,9 +2354,7 @@ def map_data2D_srx_new_tiled(
         for k in sclr_list:
             if k in data_stream0:
                 if k not in sclr_dict:
-                    sclr_dict[k] = [data_stream0[k]]
-                else:
-                    sclr_dict[k].append(data_stream0[k])
+                    sclr_dict[k] = data_stream0[k]
 
         if fast_key != "fast_gen":
             fast_pos = data_stream0[fast_key]
