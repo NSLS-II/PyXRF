@@ -1,9 +1,6 @@
 import h5py
 
-try:
-    from databroker.v0 import Broker
-except ModuleNotFoundError:
-    from databroker import Broker
+from databroker import Broker
 
 import logging
 
