@@ -1,9 +1,7 @@
-import h5py
-
-from databroker import Broker
-
 import logging
 
+import h5py
+from databroker import Broker
 from databroker._core import register_builtin_handlers
 
 #  srx detector, to be moved to filestore
